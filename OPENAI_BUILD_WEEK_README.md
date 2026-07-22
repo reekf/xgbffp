@@ -165,6 +165,14 @@ sanitization, rolling-verification aggregation, selected-risk case counts, and
 live deployment checks. These checks reduce the chance that an incomplete or
 stale run is presented as the latest forecast.
 
+After the Build Week submission entered its editing freeze, Codex created the
+separate `reekf/xgbffp` continuation repository and configured merge-based
+dual publishing. The existing scheduled jobs continue publishing daily
+forecast and verification data to the frozen-project repository, then an
+isolated clean checkout merges those generated commits onto the latest
+`xgbffp/main`. This keeps the continuation site's data current without
+discarding website-only commits made in the new repository.
+
 ### Separate Day-2 training and verification workflow
 
 Under the human-defined forecast and target contract, Codex also developed a

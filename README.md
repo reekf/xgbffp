@@ -91,6 +91,22 @@ python generate_dashboard_data.py --verification-only
 files after publishing a verified map. Forecast generation and feature
 creation are unchanged.
 
+## Daily dual-repository publishing
+
+During the OpenAI Build Week submission freeze, the installed forecast and
+verification jobs continue to run from the original `gempak-scripts` checkout
+and publish its daily generated artifacts first. After each successful source
+publication, `sync_daily_from_build_week_repo.sh` updates a separate clean
+publisher checkout, merges the source repository's new daily commit onto the
+latest `xgbffp/main`, and pushes the result to this repository.
+
+This merge-based sync intentionally allows website development to continue in
+`xgbffp` without requiring the two repositories' branch tips to remain
+identical. The dedicated publisher checkout and non-blocking file lock keep
+the automation isolated from an interactive development checkout. A dirty
+publisher checkout or merge conflict stops the target push instead of
+overwriting either repository.
+
 ## Local development and checks
 
 Serve `docs/` from the repository root:
@@ -108,6 +124,7 @@ python -m pytest tests/test_dashboard_data.py tests/test_interactive_map_realtim
 node tests/test_briefing.js
 node --check docs/app.js
 bash -n publish_latest_ml_output.sh publish_verification_output.sh
+bash -n sync_daily_from_build_week_repo.sh
 ```
 
 ## Known limitations
