@@ -107,6 +107,11 @@ browser code, tests, Git history, and public deployment by Codex:
   click-through, allowing a user to select the underlying forecast pixel and
   open its Location Briefing while retaining the alert geometry for the
   briefing's watch/warning context; and
+- cleaned up the mobile map layout by converting the long product-description
+  banner into a compact two-line disclosure with a More/Less control, moving
+  legends below the mobile navigation, shifting map controls above the bottom
+  disclosure, and hiding competing overlays while layer controls, the full
+  description, or a Location Briefing is open; and
 - regenerated the machine-readable verification assets, ran Python/JavaScript/
   JSON and contract tests, validated live single-site radar metadata and
   timestamped archive tiles, reviewed focused diffs, pushed scoped commits,

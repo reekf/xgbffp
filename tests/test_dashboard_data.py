@@ -228,6 +228,8 @@ def test_published_manifests_and_verification_contracts():
     assert 'id="radar-station-select" disabled' in index_html
     assert 'id="single-radar-play-toggle" type="button" disabled' in index_html
     assert "Click a radar-site point on the 2D map" in index_html
+    assert '<div class="product-message">' in index_html
+    assert 'id="product-message-toggle" type="button" aria-expanded="false"' in index_html
     assert 'id="mping-section" class="layer-section disabled-section" aria-disabled="true"' in index_html
     assert 'id="mping-flood-toggle" type="checkbox" disabled' in index_html
     assert "Probability of flash flooding" in index_html
@@ -249,6 +251,17 @@ def test_published_manifests_and_verification_contracts():
     ]
     assert "grid-template-columns: 1fr" in legend_styles
     assert "display: flex" not in legend_styles
+    mobile_styles = stylesheet[
+        stylesheet.index("@media (max-width: 900px)"):
+        stylesheet.index("@media (max-width: 560px)")
+    ]
+    assert ".product-message.expanded" in mobile_styles
+    assert "-webkit-line-clamp: 2" in mobile_styles
+    assert "top: 157px" in mobile_styles
+    assert ".loading { top: 157px; }" in mobile_styles
+    assert "body:has(.loading:not([hidden])) .legend" in mobile_styles
+    assert "body:has(#layer-panel-content:not([hidden])) .legend" in mobile_styles
+    assert "body:has(.location-briefing:not([hidden])) .product-message" in mobile_styles
     assert 'selected: "ml_r60v2"' in app_javascript
     assert "zoomSnap: 0.25" in app_javascript
     assert "wheelPxPerZoomLevel: 180" in app_javascript
@@ -260,6 +273,7 @@ def test_published_manifests_and_verification_contracts():
     assert 'map.createPane("radarStationPane")' in app_javascript
     assert "function activateSingleRadarStation" in app_javascript
     assert "function startSingleRadarAnimation" in app_javascript
+    assert "function setProductMessageExpanded" in app_javascript
     marker_renderer = app_javascript[
         app_javascript.index("function renderRadarStationMarkers"):
         app_javascript.index("async function fetchRadarStations")

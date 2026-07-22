@@ -794,6 +794,8 @@ button { cursor: pointer; }
   line-height: 1.4;
 }
 
+#product-message-toggle { display: none; }
+
 .loading {
   position: fixed;
   z-index: 1200;
@@ -1121,17 +1123,87 @@ noscript {
   .layer-panel {
     top: auto;
     left: 10px;
-    bottom: 52px;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     width: min(286px, calc(100% - 20px));
-    max-height: 48vh;
+    max-height: min(52dvh, calc(100dvh - 225px));
     padding: 10px 12px;
   }
   .layer-panel .panel-heading { margin-bottom: 0; }
   .layer-panel .panel-heading:has(+ #layer-panel-content:not([hidden])) { margin-bottom: 10px; }
-  .legend { right: 10px; bottom: 100px; flex-wrap: wrap; max-width: 190px; }
-  .height-legend { right: 10px; bottom: 174px; max-width: 190px; }
-  .predictor-legend { right: 10px; bottom: 174px; width: 220px; }
-  .product-message { bottom: 8px; font-size: 0.78rem; }
+  .legend {
+    top: 157px;
+    right: 8px;
+    bottom: auto;
+    max-width: 190px;
+  }
+  .height-legend { top: 157px; right: 8px; bottom: auto; max-width: 190px; }
+  .predictor-legend { top: 157px; right: 8px; bottom: auto; width: 220px; }
+  .product-message {
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    width: auto;
+    min-height: 46px;
+    max-height: 52px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    transform: none;
+    padding: 7px 8px 7px 10px;
+    text-align: left;
+    font-size: 0.66rem;
+    line-height: 1.35;
+    overflow: hidden;
+  }
+  #product-message {
+    min-width: 0;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  #product-message-toggle {
+    min-width: 48px;
+    min-height: 32px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0 7px;
+    color: #dce7ed;
+    background: #151c21;
+    border: 1px solid #46525a;
+    font-size: 0.62rem;
+  }
+  .product-message.expanded {
+    max-height: min(38dvh, 260px);
+    align-items: start;
+    overflow-y: auto;
+  }
+  .product-message.expanded #product-message {
+    display: block;
+    overflow: visible;
+  }
+  .leaflet-bottom.leaflet-right,
+  .maplibregl-ctrl-bottom-right {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+  .loading { top: 157px; }
+  body:has(.loading:not([hidden])) .legend,
+  body:has(.loading:not([hidden])) .height-legend,
+  body:has(.loading:not([hidden])) .predictor-legend,
+  body:has(#layer-panel-content:not([hidden])) .legend,
+  body:has(#layer-panel-content:not([hidden])) .height-legend,
+  body:has(#layer-panel-content:not([hidden])) .predictor-legend,
+  body:has(.product-message.expanded) .legend,
+  body:has(.product-message.expanded) .height-legend,
+  body:has(.product-message.expanded) .predictor-legend {
+    visibility: hidden;
+  }
+  body:has(.product-message.expanded) .layer-panel,
+  body:has(.location-briefing:not([hidden])) .layer-panel,
+  body:has(.location-briefing:not([hidden])) .product-message {
+    display: none;
+  }
   .dashboard { inset: 149px 0 0; padding: 22px 14px 55px; }
   .dashboard-active .product-nav { top: 62px; }
   .dashboard-active .dashboard { inset: 104px 0 0; }
@@ -1157,7 +1229,8 @@ noscript {
   #valid-period { display: none; }
   .legend {
     right: 8px;
-    bottom: 108px;
+    top: 157px;
+    bottom: auto;
     display: grid;
     grid-template-columns: 1fr;
     max-width: 210px;

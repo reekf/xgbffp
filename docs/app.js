@@ -1671,6 +1671,18 @@ function setSingleRadarEnabled(enabled) {
   }
 }
 
+function setProductMessageExpanded(expanded) {
+  const panel = document.querySelector(".product-message");
+  const button = document.getElementById("product-message-toggle");
+  panel.classList.toggle("expanded", expanded);
+  button.setAttribute("aria-expanded", String(expanded));
+  button.setAttribute(
+    "aria-label",
+    expanded ? "Collapse product description" : "Show full product description",
+  );
+  button.textContent = expanded ? "Less" : "More";
+}
+
 function setMessage(key) {
   const radius = { ml_r40: "40 km (25 mi)", ml_r60: "60 km (37 mi)", ml_r75: "75 km (47 mi)", ml_r100: "100 km (62 mi)" }[key];
   let prediction = "";
@@ -1680,6 +1692,7 @@ function setMessage(key) {
   if (key === "wpc") prediction = " It predicts the probability of rainfall exceeding Flash Flood Guidance within 40 km (25 mi) of a point.";
   if (key === "pp") prediction = " It shows an observation-based, idealized placement of risk after the valid period—not a forecast.";
   document.getElementById("product-message").textContent = `${PRODUCT_META[key]?.note || ""}${prediction}`;
+  setProductMessageExpanded(false);
 }
 
 function renderFilledLayer() {
@@ -1755,6 +1768,7 @@ function renderPredictorLayer() {
   document.getElementById("predictor-legend-min").textContent = `${predictor.scale_min} ${predictor.units}`;
   document.getElementById("predictor-legend-max").textContent = `${predictor.scale_max} ${predictor.units}`;
   document.getElementById("product-message").textContent = `${state.selectedPredictorRadius}-km model predictor #${predictor.rank}. ${predictor.direction} Mean |SHAP|: ${predictor.mean_abs_shap.toFixed(3)}.`;
+  setProductMessageExpanded(false);
 }
 
 function renderContours() {
@@ -2800,8 +2814,13 @@ document.getElementById("shap-kind").addEventListener("change", renderExplainabi
 document.getElementById("collapse-layers").addEventListener("click", (event) => {
   const content = document.getElementById("layer-panel-content");
   content.hidden = !content.hidden;
+  if (!content.hidden) setProductMessageExpanded(false);
   event.currentTarget.textContent = content.hidden ? "+" : "−";
   event.currentTarget.setAttribute("aria-label", content.hidden ? "Expand layer controls" : "Collapse layer controls");
+});
+
+document.getElementById("product-message-toggle").addEventListener("click", (event) => {
+  setProductMessageExpanded(event.currentTarget.getAttribute("aria-expanded") !== "true");
 });
 
 document.getElementById("view-2d").addEventListener("click", () => setViewMode("2d"));
