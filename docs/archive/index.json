@@ -20,17 +20,17 @@
       "date": "20260722",
       "map_available": true,
       "map_href": "archive/20260722/map.json",
-      "map_updated_utc": "2026-07-22T13:47:59Z",
+      "map_updated_utc": "2026-07-23T16:06:42Z",
       "plot_available": true,
       "plot_href": "archive/20260722/latest.png",
       "published": true,
       "site_updated_utc": "2026-07-22T13:47:59Z",
       "status_href": "archive/20260722/status.json",
       "valid_period_label": "2026-07-22 12Z to 2026-07-23 12Z",
-      "verification_available": false,
+      "verification_available": true,
       "verification_embedded_in_forecast": false,
-      "verification_plot_href": null,
-      "verification_updated_utc": "2026-07-22T13:47:59Z"
+      "verification_plot_href": "archive/20260722/verification.png",
+      "verification_updated_utc": "2026-07-23T16:06:42Z"
     },
     {
       "date": "20260721",
@@ -1105,5 +1105,5 @@
       "verification_updated_utc": "2026-07-13T04:48:06Z"
     }
   ],
-  "generated_utc": "2026-07-23T13:50:47Z"
+  "generated_utc": "2026-07-23T16:06:42Z"
 }
