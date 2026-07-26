@@ -34,6 +34,16 @@ Relevant dated commits include:
 - daily and pooled weekly/monthly/seasonal issued-forecast verification JSON
 - automated manifest/schema/unit validation and publisher integration
 - responsive/mobile dashboard and briefing layouts
+- a full Day-2 notebook viewer plus a resumable, bounded-memory builder for
+  all four historical ML prediction caches
+- corrected Day-2 event-date semantics: case V now uses RAP V-1 at 09Z while
+  ML targets, UFVS, Practically Perfect, and WPC all use V 12Z through V+1 12Z
+- explicit `Date` and `RAP_Init_Date` provenance plus a guarded
+  `v33day2valid` namespace after purging the incompatible first-pass artifacts
+- a responsive, weather-themed About the Creator page built from the project
+  lead's CV, including research and operational achievements, education,
+  publications and presentations, technical skills, a downloadable CV, and a
+  direct authoritative-journal link for the published Gallus et al. paper
 
 ## Human scientific and product decisions
 

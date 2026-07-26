@@ -107,7 +107,7 @@ const WPC_LOCAL_RISK_DISTANCE_KM = 350;
 const CONUS_LONGITUDE_SCALE = Math.cos(40 * Math.PI / 180);
 const BRIEFING_SEARCH_RADIUS_KM = 40;
 const BRIEFING_MAX_GRID_DISTANCE_KM = 100;
-const SITE_VIEWS = new Set(["forecast", "skill", "running", "explainability", "about"]);
+const SITE_VIEWS = new Set(["forecast", "skill", "running", "explainability", "about", "creator"]);
 const METRIC_META = {
   risk_occurrence_ets: { label: "Day-level ETS", direction: "Higher is better", optimum: "max" },
   risk_occurrence_csi: { label: "Day-level CSI", direction: "Higher is better", optimum: "max" },
@@ -2705,7 +2705,10 @@ function setSiteView(view, updateHistory = true) {
     section.hidden = section.dataset.dashboardView !== normalized;
   });
   document.querySelectorAll("[data-site-view]").forEach((link) => {
-    if (link.dataset.siteView === normalized) link.setAttribute("aria-current", "page");
+    const isPrimaryCreatorParent = normalized === "creator"
+      && link.dataset.siteView === "about"
+      && link.closest(".product-nav");
+    if (link.dataset.siteView === normalized || isPrimaryCreatorParent) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
   if (forecast) {
@@ -2911,6 +2914,11 @@ window.addEventListener("popstate", () => {
 async function init() {
   setupDialogs();
   setupResponsiveControls();
+  const initialParameters = new URLSearchParams(location.search);
+  const initialRequestedView = initialParameters.get("view");
+  if (initialRequestedView && initialRequestedView !== "forecast" && initialRequestedView !== "3d") {
+    setSiteView(initialRequestedView, false);
+  }
   try {
     const response = await fetch(`archive/index.json?v=${Date.now()}`);
     if (!response.ok) throw new Error("Archive index unavailable");

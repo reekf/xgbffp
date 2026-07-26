@@ -117,6 +117,15 @@ browser code, tests, Git history, and public deployment by Codex:
   timestamped archive tiles, reviewed focused diffs, pushed scoped commits,
   and monitored GitHub Pages until the new public bundles and JSON were live.
 
+On July 26, Codex also translated the creator's CV into a responsive,
+weather-themed **About the Creator** page linked from the product About view.
+The work organized the creator's research, operational experience, education,
+publications, presentations, technical skills, and Eagle Scout achievement;
+added a downloadable CV; preserved the publication status of each research
+work; and linked the published Gallus et al. paper to its authoritative journal
+record. Codex then checked the new route, local assets, HTML structure,
+JavaScript syntax, CSS structure, and desktop/mobile presentation.
+
 ### Improving ML-code efficiency
 
 GPT-5.6/Codex was also used to inspect and improve the large XGBoost training
@@ -188,11 +197,20 @@ separate Day-2 workflow rather than changing the existing Day-1 models:
 - retained the existing 0–24-hour RAP features and added distinct 24–48-hour
   instantaneous, precipitation-accumulation, maximum-accumulation, and
   QPF/FFG-ratio features;
-- aligned the target to the D+1 12Z through D+2 12Z period following the RAP
-  initialization, with explicit guards against reusing incomplete Day-1
-  feature chunks or future-observation target features;
+- corrected the Day-2 case contract so event case V uses RAP initialized V-1
+  at 09Z while MRMS/FFG, UFVS, Practically Perfect, and WPC all verify over the
+  same V 12Z through V+1 12Z window as Day 1, with explicit guards against
+  stale or future-observation features;
 - created a separate Day-2 verification viewer that retrieves WPC Day-2 ERO
   products for the exact valid window and compares them with each ML radius;
+- added a resumable, bounded-memory test-prediction builder after notebook
+  inference exhausted system memory, then produced compact caches for all four
+  ML radii;
+- separated event-valid `Date` from preceding `RAP_Init_Date` throughout
+  training, realtime prediction, historical verification, and cache metadata;
+- purged the incompatible first-pass Day-2 downloads, feature chunks, masters,
+  models, and verification caches before rebuilding under a guarded
+  `v33day2valid` namespace;
 - kept Day-2 model tags, caches, manifests, verification output, and viewer
   artifacts separate from Day 1; and
 - added contract tests and a dedicated
@@ -243,7 +261,7 @@ implementation, consistency checking, and deployment verification.
 | Publishing | `publish_latest_ml_output.sh`, `publish_verification_output.sh`, `realtime_ml.crontab` |
 | Efficient training | `hazard_ml_training_v28_r100km_singletarget_radiusstats_regression_MEMSAFE_V3.py` |
 | Radius workflows | `run_hazard_ml_v33_radius_sensitivity_from_WORKING_v28_radiusstats_SLIMMASTER_ROWSAMPLE.sh` and its generator |
-| Day-2 workflow | `run_hazard_ml_v33_day2_radius_sensitivity_from_WORKING_v28_radiusstats_SLIMMASTER_ROWSAMPLE.sh`, its generator, `hazard_ml_v33_day2_verification_viewer.py`, and `DAY2_XGBFFP_TRAINING_AND_VERIFICATION.md` |
+| Day-2 workflow | `run_hazard_ml_v33_day2_radius_sensitivity_from_WORKING_v28_radiusstats_SLIMMASTER_ROWSAMPLE.sh`, its generator, `hazard_ml_v33_day2_verification_viewer.ipynb`, `build_v33day2_test_predictions_memsafe.py`, and `DAY2_XGBFFP_TRAINING_AND_VERIFICATION.md` |
 | Validation | `tests/test_dashboard_data.py`, `tests/test_briefing.js`, publisher schema checks |
 
 ## Representative development milestones

@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" crossorigin="">
-  <link rel="stylesheet" href="style.css?v=20260722-mobile-1">
+  <link rel="stylesheet" href="style.css?v=20260726-creator-profile-2">
 </head>
 <body>
   <div id="map" aria-label="Interactive ML flash-flood probability map"></div>
@@ -383,6 +383,153 @@
           <p>Experimental machine-learning guidance. Not an official NWS forecast, watch, or warning.</p>
         </section>
       </div>
+      <section class="creator-invite dashboard-card">
+        <div>
+          <span class="eyebrow">Researcher · developer · forecaster</span>
+          <h3>Meet the creator</h3>
+          <p>Learn about Tyreek J. Frazier’s meteorology research, machine-learning development, operational testbed experience, publications, presentations, teaching, and leadership.</p>
+        </div>
+        <a class="dashboard-link" href="?view=creator" data-site-view="creator">About the Creator <span aria-hidden="true">→</span></a>
+      </section>
+    </section>
+
+    <section id="view-creator" class="dashboard-view creator-view" data-dashboard-view="creator" hidden>
+      <div class="creator-hero">
+        <div class="creator-monogram" aria-hidden="true">
+          <span>TF</span>
+          <i></i><i></i><i></i>
+        </div>
+        <div class="creator-intro">
+          <span class="eyebrow">About the Creator</span>
+          <h2>Tyreek J. Frazier</h2>
+          <p class="creator-title">Meteorologist · Machine Learning Scientist · Scientific Software Developer</p>
+          <p>Tyreek develops data-driven tools for high-impact weather forecasting and decision support. His work connects meteorology, hydrology, statistics, and software engineering—from multi-year atmospheric datasets and probabilistic models to real-time forecast products built for rapid interpretation.</p>
+          <div class="creator-actions">
+            <a class="dashboard-link" href="assets/tyreek-frazier-cv.pdf" target="_blank" rel="noopener">View full CV (PDF) <span aria-hidden="true">↗</span></a>
+            <a class="secondary-dashboard-link" href="?view=about" data-site-view="about">Back to About XGBFFP</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="creator-stat-strip" aria-label="Career highlights">
+        <div><strong>6M+</strong><span>Gridded samples processed</span></div>
+        <div><strong>2</strong><span>WPC FFaIR experiments</span></div>
+        <div><strong>4</strong><span>Listed research papers</span></div>
+        <div><strong>5</strong><span>Selected presentations</span></div>
+      </div>
+
+      <section class="creator-section">
+        <div class="creator-section-heading">
+          <span class="section-index">01</span>
+          <div><span class="eyebrow">Core work</span><h3>Research and technical impact</h3></div>
+        </div>
+        <div class="achievement-grid">
+          <article class="achievement-card accent-blue">
+            <span>NOAA-funded research</span>
+            <h4>Improving extreme-rainfall forecasts</h4>
+            <p>Leads research using machine learning to diagnose and reduce displacement and intensity errors in High-Resolution Ensemble Forecast extreme-precipitation guidance.</p>
+          </article>
+          <article class="achievement-card accent-green">
+            <span>Scientific data systems</span>
+            <h4>Reproducible, large-scale pipelines</h4>
+            <p>Designed Python workflows that ingest, quality-control, regrid, join, and analyze more than six million samples spanning NWP, radar precipitation, Flash Flood Guidance, GRIB2, NetCDF, HDF5, and geospatial data.</p>
+          </article>
+          <article class="achievement-card accent-yellow">
+            <span>Probabilistic ML</span>
+            <h4>Models built for rigorous evaluation</h4>
+            <p>Developed XGBoost, random-forest, and logistic-regression systems with engineered predictors, hyperparameter optimization, independent holdouts, and statistical performance comparisons.</p>
+          </article>
+          <article class="achievement-card accent-magenta">
+            <span>Operational translation</span>
+            <h4>Forecasts from artifacts to interface</h4>
+            <p>Built automated real-time flash-flood prediction and next-day verification workflows that retrieve operational data and publish interactive guidance for fast decision support.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="creator-section">
+        <div class="creator-section-heading">
+          <span class="section-index">02</span>
+          <div><span class="eyebrow">Experience</span><h3>Science in research, operations, and education</h3></div>
+        </div>
+        <div class="career-timeline">
+          <article>
+            <time>2022–2026</time>
+            <div><h4>Graduate Research Assistant · Iowa State University</h4><p>Leads interdisciplinary precipitation and flash-flood ML research; evaluates reliability, Brier and Ranked Probability Skill Scores, CSI, ETS, POD, FAR, object-based errors, and statistical significance.</p></div>
+          </article>
+          <article>
+            <time>2024–2025</time>
+            <div><h4>Flash Flood and Intense Rainfall Experiment · NOAA WPC</h4><p>Selected for the 2024 in-person and 2025 virtual operational testbeds. Produced daily experimental forecasts with self-developed ML tools, gathered forecaster feedback, and presented uncertainty and model limitations in a time-sensitive environment.</p></div>
+          </article>
+          <article>
+            <time>2026–present</time>
+            <div><h4>Co-Mentor · Undergraduate Research</h4><p>Guides a senior meteorology student investigating how near-storm environments affect ML postprocessor performance during mesoscale convective systems.</p></div>
+          </article>
+          <article>
+            <time>2022–2023</time>
+            <div><h4>Teaching Assistant · Iowa State University</h4><p>Led lectures and laboratory sessions in undergraduate synoptic and mesoscale meteorology while supporting assessment and student learning.</p></div>
+          </article>
+          <article>
+            <time>2021</time>
+            <div><h4>Summer Intern · Federal Aviation Administration</h4><p>Evaluated high-altitude ASOS ceilometer capabilities and worked with FAA, NCAR, NOAA, and National Weather Service scientists on aviation-weather applications.</p></div>
+          </article>
+        </div>
+      </section>
+
+      <div class="creator-two-column">
+        <section class="creator-section creator-panel">
+          <div class="creator-section-heading compact">
+            <span class="section-index">03</span>
+            <div><span class="eyebrow">Education</span><h3>Academic foundation</h3></div>
+          </div>
+          <div class="education-list">
+            <article><span>Ph.D. in Meteorology</span><strong>Iowa State University</strong><small>Successfully defended July 16, 2026 · 2022–2026</small></article>
+            <article><span>B.S. in Meteorology</span><strong>University of Miami</strong><small>Minors in Mathematics and Psychology · 2018–2022</small></article>
+          </div>
+        </section>
+
+        <section class="creator-section creator-panel">
+          <div class="creator-section-heading compact">
+            <span class="section-index">04</span>
+            <div><span class="eyebrow">Technical range</span><h3>Tools and domains</h3></div>
+          </div>
+          <div class="skill-cloud" aria-label="Technical skills">
+            <span>Python</span><span>Bash</span><span>Linux</span><span>Git/GitHub</span><span>XGBoost</span><span>scikit-learn</span><span>TensorFlow</span><span>PyTorch</span><span>NumPy</span><span>pandas</span><span>xarray</span><span>SciPy</span><span>Matplotlib</span><span>Cartopy</span><span>GRIB2</span><span>NetCDF</span><span>HDF5</span><span>GIS</span><span>Forecast verification</span><span>Ensemble forecasting</span>
+          </div>
+        </section>
+      </div>
+
+      <section class="creator-section">
+        <div class="creator-section-heading">
+          <span class="section-index">05</span>
+          <div><span class="eyebrow">Scholarship</span><h3>Publications and manuscripts</h3></div>
+        </div>
+        <div class="publication-list">
+          <article><span class="publication-status published">Published · 2025</span><p>Gallus, W. A., Jr., et al. <a href="https://www.mdpi.com/2073-4441/17/15/2168" target="_blank" rel="noopener">“A Climatology of Errors in HREF MCS Precipitation Objects.”</a> <cite>Water, 17(15), 2168.</cite></p></article>
+          <article><span class="publication-status review">Under review</span><p>Frazier, T. J., et al. “A Machine Learning Postprocessor to Mitigate Ensemble Quantitative Precipitation Forecast Displacement Errors.” <cite>Journal of Artificial Intelligence for the Earth Systems.</cite></p></article>
+          <article><span class="publication-status preparation">In preparation</span><p>Frazier, T. J., et al. “Using Machine Learning to Improve Intensity Errors in Ensemble Quantitative Precipitation Forecasts.”</p></article>
+          <article><span class="publication-status preparation">In preparation</span><p>Frazier, T. J., et al. “Probabilistic Machine Learning Forecasts of Extreme Rainfall from Mesoscale Convective Systems.”</p></article>
+        </div>
+      </section>
+
+      <section class="creator-section">
+        <div class="creator-section-heading">
+          <span class="section-index">06</span>
+          <div><span class="eyebrow">Communication</span><h3>Selected presentations</h3></div>
+        </div>
+        <div class="presentation-list">
+          <article><time>Mar 2026</time><div><strong>Using Machine Learning to Improve Forecasts of Extreme Rainfall</strong><span>Oral · Earth, Atmosphere, and Climate Graduate Student Symposium</span></div></article>
+          <article><time>Jun 2025</time><div><strong>A Machine Learning Postprocessor to Mitigate Ensemble QPF Displacement and Intensity Errors</strong><span>Oral · NOAA WPC FFaIR Experiment</span></div></article>
+          <article><time>Jan 2025</time><div><strong>Evaluation of a Machine Learning Post-Processor to Mitigate Quantitative Precipitation Forecast Errors</strong><span>Oral · AMS 105th Annual Meeting</span></div></article>
+          <article><time>Jan 2024</time><div><strong>Correcting MCS QPF Errors of Intensity, Timing, and Location Using Machine Learning</strong><span>Poster · AMS 104th Annual Meeting</span></div></article>
+          <article><time>Jan 2022</time><div><strong>Aviation Benefits of Allowing ASOS Ceilometers to Gather Data up to 25,000 ft</strong><span>Poster · AMS 102nd Annual Meeting</span></div></article>
+        </div>
+      </section>
+
+      <section class="creator-footer-card">
+        <div><span class="eyebrow">Leadership</span><h3>Eagle Scout</h3><p>Earned June 2017 · Boy Scouts of America</p></div>
+        <p>Scientific rigor, public-service forecasting, mentorship, and practical software development shape the work behind XGBFFP.</p>
+      </section>
     </section>
   </main>
 
@@ -445,6 +592,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" crossorigin=""></script>
   <script src="https://unpkg.com/deck.gl@9.1.14/dist.min.js" crossorigin=""></script>
   <script src="briefing.js?v=20260719-xgbffp-1"></script>
-  <script src="app.js?v=20260722-mobile-1"></script>
+  <script src="app.js?v=20260726-creator-profile-2"></script>
 </body>
 </html>
