@@ -44,6 +44,13 @@ Relevant dated commits include:
   lead's CV, including research and operational achievements, education,
   publications and presentations, technical skills, a downloadable CV, and a
   direct authoritative-journal link for the published Gallus et al. paper
+- larger outlined primary tabs with a sliding active highlight, directional
+  page transitions, and reduced-motion support
+- valid-period safeguards that suppress live radar, live LSRs, and active NWS
+  flood alerts on archived cases while preserving archived flood proxies
+- an ML-only continuous 2D probability display and dynamic 0–100% legend that
+  retains WPC risk colors and fades probabilities above 70% into dark purple
+- updated optimized XGBFFP artwork for the header and browser/mobile icons
 
 ## Human scientific and product decisions
 

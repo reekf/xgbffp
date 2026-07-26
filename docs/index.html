@@ -5,14 +5,14 @@
   <title>XGBoosted Flash Flood Predictions</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b0d">
-  <link rel="icon" type="image/png" href="assets/xgbffp-logo.png?v=20260720-logo-1">
-  <link rel="apple-touch-icon" href="assets/xgbffp-logo.png?v=20260720-logo-1">
+  <link rel="icon" type="image/png" href="assets/xgbffp-logo.png?v=20260726-logo-2">
+  <link rel="apple-touch-icon" href="assets/xgbffp-logo.png?v=20260726-logo-2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" crossorigin="">
-  <link rel="stylesheet" href="style.css?v=20260726-creator-profile-2">
+  <link rel="stylesheet" href="style.css?v=20260726-tabs-continuous-7">
 </head>
 <body>
   <div id="map" aria-label="Interactive ML flash-flood probability map"></div>
@@ -20,7 +20,7 @@
 
   <header class="topbar">
     <div class="brand">
-      <img class="brand-mark" src="assets/xgbffp-logo.png?v=20260720-logo-1" alt="XGBFFP logo">
+      <img class="brand-mark" src="assets/xgbffp-logo.png?v=20260726-logo-2" alt="XGBFFP logo">
       <div>
         <h1>XGBoosted Flash Flood Predictions</h1>
         <span class="experimental-label">Experimental</span>
@@ -28,6 +28,7 @@
     </div>
 
     <nav class="product-nav" aria-label="Primary">
+      <span id="product-nav-highlight" class="product-nav-highlight" aria-hidden="true"></span>
       <a href="?view=forecast" data-site-view="forecast" aria-current="page">Forecast</a>
       <a href="?view=skill" data-site-view="skill">Model Skill</a>
       <a href="?view=running" data-site-view="running">Running Verification</a>
@@ -120,6 +121,7 @@
             </select>
           </label>
           <p id="lsr-status" class="availability-note">Loading NWS local storm reports via Iowa Environmental Mesonet…</p>
+          <p class="live-layer-note">Live reports are available only when the selected case contains the current observation time. Historical cases retain their archived flood-proxy observations.</p>
         </div>
       </details>
 
@@ -148,6 +150,7 @@
             <span id="single-radar-frame-time">No single-site loop selected.</span>
           </div>
           <p id="radar-status" class="availability-note">Loading current radar loop…</p>
+          <p class="live-layer-note">Radar is available only when its current scans fall inside the selected forecast valid period.</p>
         </div>
       </details>
 
@@ -159,6 +162,7 @@
             <label><input type="checkbox" value="warning" checked> <i style="--alert-color:#ff4f4f"></i>Flood warnings</label>
           </div>
           <p id="flood-alert-status" class="availability-note">Loading active NWS flood alerts…</p>
+          <p class="live-layer-note">Active alerts are available only for the currently valid forecast case.</p>
         </div>
       </details>
 
@@ -181,6 +185,11 @@
             <input id="expansion-ring-toggle" type="checkbox">
             <span>40-km expansion rings</span>
           </label>
+          <label id="continuous-probability-control" class="expansion-ring-control continuous-probability-control">
+            <input id="continuous-probability-toggle" type="checkbox">
+            <span>Continuous ML probabilities</span>
+          </label>
+          <p id="continuous-probability-note" class="availability-note compact-note">Available for ML products on the 2D map.</p>
           <div class="opacity-control">
             <label id="opacity-control-label" for="fill-opacity">Forecast opacity</label>
             <div>
@@ -197,10 +206,19 @@
 
   <div id="probability-legend" class="legend" aria-label="Probability of flash flooding legend">
     <strong>Probability of flash flooding</strong>
-    <span><i style="--swatch:#57c84d"></i>Marginal (≥5%)</span>
-    <span><i style="--swatch:#f0df35"></i>Slight (≥15%)</span>
-    <span><i style="--swatch:#e14b3f"></i>Moderate (≥40%)</span>
-    <span><i style="--swatch:#d94ad7"></i>High (≥70%)</span>
+    <div id="categorical-probability-legend" class="categorical-probability-legend">
+      <span><i style="--swatch:#57c84d"></i>Marginal (≥5%)</span>
+      <span><i style="--swatch:#f0df35"></i>Slight (≥15%)</span>
+      <span><i style="--swatch:#e14b3f"></i>Moderate (≥40%)</span>
+      <span><i style="--swatch:#d94ad7"></i>High (≥70%)</span>
+    </div>
+    <div id="continuous-probability-legend" class="continuous-probability-legend" hidden>
+      <span class="continuous-probability-gradient" aria-hidden="true"></span>
+      <div class="continuous-probability-ticks" aria-hidden="true">
+        <span>0</span><span>5</span><span>15</span><span>40</span><span>70</span><span>100%</span>
+      </div>
+      <small>Continuous ML probability</small>
+    </div>
   </div>
 
   <div id="predictor-legend" class="predictor-legend" aria-label="Predictor value legend" hidden>
@@ -592,6 +610,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" crossorigin=""></script>
   <script src="https://unpkg.com/deck.gl@9.1.14/dist.min.js" crossorigin=""></script>
   <script src="briefing.js?v=20260719-xgbffp-1"></script>
-  <script src="app.js?v=20260726-creator-profile-2"></script>
+  <script src="app.js?v=20260726-tabs-continuous-7"></script>
 </body>
 </html>

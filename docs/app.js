@@ -6,6 +6,14 @@ const RISK_COLORS = {
   40: "#e14b3f",
   70: "#d94ad7",
 };
+const CONTINUOUS_RISK_STOPS = [
+  { threshold: 0, color: "#12331d" },
+  { threshold: 5, color: RISK_COLORS[5] },
+  { threshold: 15, color: RISK_COLORS[15] },
+  { threshold: 40, color: RISK_COLORS[40] },
+  { threshold: 70, color: RISK_COLORS[70] },
+  { threshold: 100, color: "#31004d" },
+];
 const MAP_DATA_VERSION = "5";
 
 const PRODUCT_META = {
@@ -108,6 +116,7 @@ const CONUS_LONGITUDE_SCALE = Math.cos(40 * Math.PI / 180);
 const BRIEFING_SEARCH_RADIUS_KM = 40;
 const BRIEFING_MAX_GRID_DISTANCE_KM = 100;
 const SITE_VIEWS = new Set(["forecast", "skill", "running", "explainability", "about", "creator"]);
+const SITE_VIEW_ORDER = ["forecast", "skill", "running", "explainability", "about", "creator"];
 const METRIC_META = {
   risk_occurrence_ets: { label: "Day-level ETS", direction: "Higher is better", optimum: "max" },
   risk_occurrence_csi: { label: "Day-level CSI", direction: "Higher is better", optimum: "max" },
@@ -127,6 +136,7 @@ const state = {
   contours: new Set(),
   observations: new Set(),
   fillOpacity: 1,
+  continuousProbabilities: false,
   fillLayer: null,
   domainLayer: null,
   contourLayer: null,
@@ -169,6 +179,7 @@ const state = {
   floodAlertRequest: 0,
   floodAlertAvailability: "loading",
   floodZoneCache: new Map(),
+  liveLayersAvailable: false,
   mpingReports: [],
   mpingVisible: false,
   mpingAvailability: "unavailable",
@@ -188,6 +199,8 @@ const state = {
   riskOccurrence: null,
   runningVerification: null,
   explainabilityManifest: null,
+  tabTransitionTimer: null,
+  viewTransition: null,
 };
 
 const map = L.map("map", {
@@ -269,14 +282,18 @@ function colorRgba(hex, alpha = 255) {
 }
 
 function continuousRiskColor(probability, alpha = 255) {
-  const stops = THRESHOLDS.map((threshold) => ({ threshold, color: colorRgba(RISK_COLORS[threshold]) }));
-  if (probability <= stops[0].threshold) return [...stops[0].color.slice(0, 3), alpha];
-  if (probability >= stops.at(-1).threshold) return [...stops.at(-1).color.slice(0, 3), alpha];
+  const value = Math.max(0, Math.min(100, Number(probability) || 0));
+  const stops = CONTINUOUS_RISK_STOPS.map((stop) => ({
+    threshold: stop.threshold,
+    color: colorRgba(stop.color),
+  }));
+  if (value <= stops[0].threshold) return [...stops[0].color.slice(0, 3), alpha];
+  if (value >= stops.at(-1).threshold) return [...stops.at(-1).color.slice(0, 3), alpha];
   for (let index = 1; index < stops.length; index += 1) {
     const upper = stops[index];
     const lower = stops[index - 1];
-    if (probability > upper.threshold) continue;
-    const fraction = (probability - lower.threshold) / (upper.threshold - lower.threshold);
+    if (value > upper.threshold) continue;
+    const fraction = (value - lower.threshold) / (upper.threshold - lower.threshold);
     return [
       Math.round(lower.color[0] + (upper.color[0] - lower.color[0]) * fraction),
       Math.round(lower.color[1] + (upper.color[1] - lower.color[1]) * fraction),
@@ -285,6 +302,39 @@ function continuousRiskColor(probability, alpha = 255) {
     ];
   }
   return [...stops.at(-1).color.slice(0, 3), alpha];
+}
+
+function continuousRiskCss(encodedValue) {
+  const [red, green, blue] = continuousRiskColor(Number(encodedValue) / 10);
+  return `rgb(${red},${green},${blue})`;
+}
+
+function isMlProduct(key) {
+  return String(key || "").startsWith("ml_");
+}
+
+function continuousProbabilityActive() {
+  return state.continuousProbabilities
+    && state.viewMode === "2d"
+    && isMlProduct(state.selected)
+    && !state.selectedPredictor;
+}
+
+function updateContinuousProbabilityUI() {
+  const checkbox = document.getElementById("continuous-probability-toggle");
+  const control = document.getElementById("continuous-probability-control");
+  const note = document.getElementById("continuous-probability-note");
+  const available = state.viewMode === "2d" && isMlProduct(state.selected) && !state.selectedPredictor;
+  checkbox.disabled = !available;
+  checkbox.checked = available && state.continuousProbabilities;
+  control.classList.toggle("is-unavailable", !available);
+  note.textContent = available
+    ? "Interpolates the raw ML values from 0–100%; WPC and verification remain categorical."
+    : "Available for ML products on the 2D map.";
+  const continuous = continuousProbabilityActive();
+  document.getElementById("categorical-probability-legend").hidden = continuous;
+  document.getElementById("continuous-probability-legend").hidden = !continuous;
+  document.getElementById("probability-legend").classList.toggle("continuous", continuous);
 }
 
 function forecastDomainBounds() {
@@ -857,6 +907,7 @@ function setViewMode(mode) {
   document.getElementById("height-legend").hidden = mode !== "3d";
   document.getElementById("predictor-legend").hidden = mode !== "2d" || !state.selectedPredictor;
   document.getElementById("point-gap-control").hidden = mode !== "3d";
+  updateContinuousProbabilityUI();
   if (mode === "3d" && (state.radarEnabled || state.singleRadarEnabled)) {
     document.getElementById("radar-status").textContent = "Radar overlays are available in 2D view.";
   }
@@ -1318,7 +1369,7 @@ function preloadRadarLayers() {
 }
 
 async function fetchRadarFrames(scheduleRefresh = false) {
-  if (!state.radarEnabled) return;
+  if (!state.radarEnabled || !selectedCaseSupportsLiveLayers()) return;
   const request = ++state.radarRequest;
   const status = document.getElementById("radar-status");
   status.textContent = "Loading current radar loop...";
@@ -1330,7 +1381,11 @@ async function fetchRadarFrames(scheduleRefresh = false) {
     const frames = [
       ...(payload?.radar?.past || []),
       ...(payload?.radar?.nowcast || []),
-    ].filter((frame) => frame?.path && frame?.time);
+    ].filter((frame) => (
+      frame?.path
+      && frame?.time
+      && selectedCaseSupportsLiveLayers(state.data?.date, Number(frame.time) * 1000)
+    ));
     if (!payload?.host || frames.length === 0) throw new Error("RainViewer returned no radar frames");
     state.radarHost = payload.host;
     state.radarFrames = frames.slice(-12);
@@ -1351,6 +1406,11 @@ async function fetchRadarFrames(scheduleRefresh = false) {
 }
 
 function setRadarEnabled(enabled) {
+  if (enabled && !selectedCaseSupportsLiveLayers()) {
+    document.getElementById("radar-loop-toggle").checked = false;
+    document.getElementById("radar-status").textContent = "Current radar does not match this archived forecast valid period.";
+    enabled = false;
+  }
   state.radarEnabled = enabled;
   if (!enabled) {
     state.radarRequest += 1;
@@ -1417,6 +1477,7 @@ function populateRadarStationSelect() {
 }
 
 function activateSingleRadarStation(stationId) {
+  if (!selectedCaseSupportsLiveLayers()) return;
   state.selectedSingleRadar = stationId;
   document.getElementById("radar-station-select").value = stationId;
   document.getElementById("radar-loop-toggle").checked = false;
@@ -1602,7 +1663,7 @@ function preloadSingleRadarLayers() {
 }
 
 async function fetchSingleRadarFrames(scheduleRefresh = false) {
-  if (!state.singleRadarEnabled || !state.selectedSingleRadar) return;
+  if (!state.singleRadarEnabled || !state.selectedSingleRadar || !selectedCaseSupportsLiveLayers()) return;
   clearTimeout(state.singleRadarRefreshTimer);
   state.singleRadarRefreshTimer = null;
   const request = ++state.singleRadarRequest;
@@ -1625,7 +1686,10 @@ async function fetchSingleRadarFrames(scheduleRefresh = false) {
     const payload = await response.json();
     if (request !== state.singleRadarRequest || !state.singleRadarEnabled) return;
     state.singleRadarFrames = (payload.scans || [])
-      .filter((frame) => Number.isFinite(Date.parse(frame.ts)))
+      .filter((frame) => (
+        Number.isFinite(Date.parse(frame.ts))
+        && selectedCaseSupportsLiveLayers(state.data?.date, Date.parse(frame.ts))
+      ))
       .slice(-SINGLE_RADAR_MAX_FRAMES);
     if (!state.singleRadarFrames.length) throw new Error("No recent NEXRAD scans were returned");
     state.singleRadarFrameIndex = 0;
@@ -1650,6 +1714,11 @@ async function fetchSingleRadarFrames(scheduleRefresh = false) {
 }
 
 function setSingleRadarEnabled(enabled) {
+  if (enabled && !selectedCaseSupportsLiveLayers()) {
+    document.getElementById("single-radar-toggle").checked = false;
+    document.getElementById("radar-status").textContent = "Current radar does not match this archived forecast valid period.";
+    enabled = false;
+  }
   state.singleRadarEnabled = enabled;
   document.getElementById("radar-station-select").disabled = !enabled || !state.singleRadarStations.length;
   if (!enabled) {
@@ -1691,7 +1760,10 @@ function setMessage(key) {
   if (key === "ml_mean") prediction = " It averages the available ML radius configurations at each grid point.";
   if (key === "wpc") prediction = " It predicts the probability of rainfall exceeding Flash Flood Guidance within 40 km (25 mi) of a point.";
   if (key === "pp") prediction = " It shows an observation-based, idealized placement of risk after the valid period—not a forecast.";
-  document.getElementById("product-message").textContent = `${PRODUCT_META[key]?.note || ""}${prediction}`;
+  const display = continuousProbabilityActive()
+    ? " The 2D fill uses the continuous raw ML probability scale."
+    : "";
+  document.getElementById("product-message").textContent = `${PRODUCT_META[key]?.note || ""}${prediction}${display}`;
   setProductMessageExpanded(false);
 }
 
@@ -1702,6 +1774,7 @@ function renderFilledLayer() {
   }
   const probabilityLegend = document.getElementById("probability-legend");
   probabilityLegend.hidden = Boolean(state.selectedPredictor);
+  updateContinuousProbabilityUI();
   if (state.selectedPredictor) return;
   if (!state.data || !state.data.layers[state.selected]) return;
   if (state.viewMode === "3d") {
@@ -1715,9 +1788,13 @@ function renderFilledLayer() {
   const lon = state.data.grid.lon;
   const group = L.layerGroup();
   const radius = Math.max(2.2, Math.min(4.2, 2.2 + (map.getZoom() - 4) * 0.35));
+  const continuous = continuousProbabilityActive();
 
   for (let index = 0; index < values.length; index += 1) {
-    const color = riskColor(values[index]);
+    const encodedValue = Number(values[index]) || 0;
+    const color = continuous
+      ? (encodedValue > 0 ? continuousRiskCss(encodedValue) : null)
+      : riskColor(encodedValue);
     if (!color) continue;
     L.circleMarker([lat[index], lon[index]], {
       pane: "forecastPane",
@@ -1874,11 +1951,16 @@ function lsrPopup(report) {
 }
 
 function renderLsrs() {
+  if (state.lsrLayer) map.removeLayer(state.lsrLayer);
+  state.lsrLayer = null;
+  if (!selectedCaseSupportsLiveLayers()) {
+    if (state.viewMode === "3d") schedule3dRender();
+    return;
+  }
   if (state.viewMode === "3d") {
     schedule3dRender();
     return;
   }
-  if (state.lsrLayer) map.removeLayer(state.lsrLayer);
   const threshold = Number(document.getElementById("rain-threshold").value);
   const group = L.layerGroup();
   const reports = state.mpingVisible ? state.lsrReports.concat(state.mpingReports) : state.lsrReports;
@@ -1918,6 +2000,74 @@ function forecastWindow(date) {
   return { start, end };
 }
 
+function selectedCaseSupportsLiveLayers(date = state.data?.date, now = Date.now()) {
+  if (!/^\d{8}$/.test(String(date || ""))) return false;
+  const window = forecastWindow(String(date));
+  const timestamp = Number(now);
+  return Number.isFinite(timestamp)
+    && timestamp >= window.start.getTime()
+    && timestamp < window.end.getTime();
+}
+
+function setLiveSectionAvailability(sectionId, available) {
+  document.getElementById(sectionId).classList.toggle("live-layer-unavailable", !available);
+}
+
+function updateTemporalLayerAvailability() {
+  const available = selectedCaseSupportsLiveLayers();
+  state.liveLayersAvailable = available;
+
+  const radarToggle = document.getElementById("radar-loop-toggle");
+  const singleRadarToggle = document.getElementById("single-radar-toggle");
+  radarToggle.disabled = !available;
+  singleRadarToggle.disabled = !available;
+  setLiveSectionAvailability("radar-section", available);
+
+  document.querySelectorAll("#lsr-section input, #lsr-section select").forEach((control) => {
+    control.disabled = !available;
+  });
+  setLiveSectionAvailability("lsr-section", available);
+
+  document.querySelectorAll("#flood-alert-section input").forEach((control) => {
+    control.disabled = !available;
+  });
+  setLiveSectionAvailability("flood-alert-section", available);
+
+  if (available) {
+    document.getElementById("radar-station-select").disabled = !state.singleRadarEnabled || !state.singleRadarStations.length;
+    if (!state.radarEnabled && !state.singleRadarEnabled) {
+      document.getElementById("radar-status").textContent = "Radar overlay is off.";
+    }
+    updateSingleRadarPlaybackControls();
+    return true;
+  }
+
+  radarToggle.checked = false;
+  singleRadarToggle.checked = false;
+  setRadarEnabled(false);
+  setSingleRadarEnabled(false);
+  clearRadarStationMarkers();
+  document.getElementById("radar-status").textContent = "Unavailable: current radar scans fall outside this archived forecast valid period.";
+
+  state.lsrRequest += 1;
+  clearTimeout(state.lsrTimer);
+  state.lsrTimer = null;
+  state.lsrReports = [];
+  state.lsrAvailability = "historical";
+  renderLsrs();
+  document.getElementById("lsr-status").textContent = "Unavailable for archived cases. Use Flood proxy observations when verification is available.";
+
+  state.floodAlertRequest += 1;
+  clearTimeout(state.floodAlertTimer);
+  state.floodAlertTimer = null;
+  state.floodAlerts = [];
+  state.floodAlertAvailability = "historical";
+  renderFloodAlerts();
+  document.getElementById("flood-alert-status").textContent = "Unavailable: active NWS alerts apply only to the currently valid case.";
+  updateLocationBriefing();
+  return false;
+}
+
 function parseLsrFeature(feature) {
   const properties = feature?.properties || {};
   const coordinates = feature?.geometry?.coordinates || [];
@@ -1948,6 +2098,7 @@ function parseLsrFeature(feature) {
 }
 
 async function fetchLsrs(date, scheduleRefresh = false) {
+  if (!selectedCaseSupportsLiveLayers(date)) return;
   const request = ++state.lsrRequest;
   const window = forecastWindow(date);
   const start = window.start.toISOString().slice(0, 16) + "Z";
@@ -1997,6 +2148,8 @@ function floodAlertKind(event) {
 
 function renderFloodAlerts() {
   if (state.floodAlertLayer) map.removeLayer(state.floodAlertLayer);
+  state.floodAlertLayer = null;
+  if (!selectedCaseSupportsLiveLayers()) return;
   const features = state.floodAlerts.filter((feature) => state.floodAlertTypes.has(feature.properties.kind));
   state.floodAlertLayer = L.geoJSON({ type: "FeatureCollection", features }, {
     pane: "floodAlertPane",
@@ -2045,6 +2198,7 @@ async function alertPolygonFeatures(alert) {
 }
 
 async function fetchFloodAlerts(scheduleRefresh = false) {
+  if (!selectedCaseSupportsLiveLayers()) return;
   const request = ++state.floodAlertRequest;
   const status = document.getElementById("flood-alert-status");
   state.floodAlertAvailability = "loading";
@@ -2260,9 +2414,12 @@ async function loadDate(date, fit = false) {
     renderObservations();
     renderForecastDomain();
     updateDateUI(entry);
-    const isLatest = String(state.archive[0]?.date) === String(state.data.date);
-    clearTimeout(state.lsrTimer);
-    fetchLsrs(state.data.date, isLatest);
+    const liveLayersAvailable = updateTemporalLayerAvailability();
+    if (liveLayersAvailable) {
+      clearTimeout(state.lsrTimer);
+      fetchLsrs(state.data.date, true);
+      fetchFloodAlerts(true);
+    }
     if (fit) map.fitBounds([[30, -105], [50, -80.5]], { padding: [15, 15] });
     updateLocationBriefing();
     updateUrl();
@@ -2694,8 +2851,32 @@ async function loadExplainabilityDashboard() {
   }
 }
 
-function setSiteView(view, updateHistory = true) {
-  const normalized = SITE_VIEWS.has(view) ? view : "forecast";
+function updateProductNavHighlight() {
+  const nav = document.querySelector(".product-nav");
+  const active = nav?.querySelector('a[aria-current="page"]');
+  if (!nav || !active) return;
+  const navBounds = nav.getBoundingClientRect();
+  const activeBounds = active.getBoundingClientRect();
+  const activeLeft = activeBounds.left - navBounds.left + nav.scrollLeft;
+  nav.style.setProperty("--tab-x", `${activeLeft}px`);
+  nav.style.setProperty("--tab-width", `${activeBounds.width}px`);
+  nav.classList.add("indicator-ready");
+  const leftEdge = activeLeft;
+  const rightEdge = leftEdge + activeBounds.width;
+  if (leftEdge < nav.scrollLeft) {
+    nav.scrollTo({ left: leftEdge - 8, behavior: "auto" });
+  } else if (rightEdge > nav.scrollLeft + nav.clientWidth) {
+    nav.scrollTo({ left: rightEdge - nav.clientWidth + 8, behavior: "auto" });
+  }
+}
+
+function siteViewDirection(previous, next) {
+  const previousIndex = Math.max(0, SITE_VIEW_ORDER.indexOf(previous));
+  const nextIndex = Math.max(0, SITE_VIEW_ORDER.indexOf(next));
+  return nextIndex < previousIndex ? "backward" : "forward";
+}
+
+function applySiteView(normalized, updateHistory) {
   state.siteView = normalized;
   const forecast = normalized === "forecast";
   document.body.classList.toggle("dashboard-active", !forecast);
@@ -2726,7 +2907,37 @@ function setSiteView(view, updateHistory = true) {
   } else if (normalized === "explainability") {
     loadExplainabilityDashboard();
   }
+  requestAnimationFrame(updateProductNavHighlight);
   if (updateHistory) updateUrl("push");
+}
+
+function setSiteView(view, updateHistory = true) {
+  const normalized = SITE_VIEWS.has(view) ? view : "forecast";
+  const previous = state.siteView;
+  if (previous === normalized) {
+    applySiteView(normalized, updateHistory);
+    return;
+  }
+  const direction = siteViewDirection(previous, normalized);
+  const apply = () => applySiteView(normalized, updateHistory);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (document.startViewTransition && !reduceMotion) {
+    state.viewTransition?.skipTransition?.();
+    document.documentElement.dataset.tabDirection = direction;
+    state.viewTransition = document.startViewTransition(apply);
+    state.viewTransition.finished.finally(() => {
+      state.viewTransition = null;
+      delete document.documentElement.dataset.tabDirection;
+    });
+    return;
+  }
+  apply();
+  const className = `tab-transition-${direction}`;
+  document.body.classList.remove("tab-transition-forward", "tab-transition-backward");
+  void document.body.offsetWidth;
+  document.body.classList.add(className);
+  clearTimeout(state.tabTransitionTimer);
+  state.tabTransitionTimer = setTimeout(() => document.body.classList.remove(className), 360);
 }
 
 function setupDialogs() {
@@ -2785,6 +2996,8 @@ document.querySelectorAll("[data-site-view]").forEach((link) => {
     setSiteView(link.dataset.siteView);
   });
 });
+window.addEventListener("resize", () => requestAnimationFrame(updateProductNavHighlight));
+document.fonts?.ready?.then(() => requestAnimationFrame(updateProductNavHighlight));
 document.getElementById("clear-location").addEventListener("click", clearBriefingLocation);
 document.getElementById("copy-briefing").addEventListener("click", async () => {
   const status = document.getElementById("copy-briefing-status");
@@ -2886,6 +3099,12 @@ opacityInput.addEventListener("input", () => {
   renderFilledLayer();
 });
 
+document.getElementById("continuous-probability-toggle").addEventListener("change", (event) => {
+  state.continuousProbabilities = event.currentTarget.checked;
+  renderFilledLayer();
+  renderLocationBriefing();
+});
+
 document.querySelectorAll(".lsr-options input").forEach((checkbox) => {
   checkbox.addEventListener("change", () => {
     if (checkbox.checked) state.lsrTypes.add(checkbox.value);
@@ -2941,7 +3160,6 @@ async function init() {
     setRadarEnabled(document.getElementById("radar-loop-toggle").checked);
     setSingleRadarEnabled(document.getElementById("single-radar-toggle").checked);
     fetchRadarStations();
-    fetchFloodAlerts(true);
   } catch (error) {
     document.getElementById("product-message").textContent = "Forecast data could not be loaded. Please try again shortly.";
     hideLoading();

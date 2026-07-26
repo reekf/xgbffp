@@ -5,6 +5,7 @@ from datetime import date
 import json
 import math
 from pathlib import Path
+import struct
 import sys
 
 
@@ -217,7 +218,9 @@ def test_published_manifests_and_verification_contracts():
 
     index_html = (docs / "index.html").read_text()
     logo_path = docs / "assets/xgbffp-logo.png"
-    assert logo_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    logo_bytes = logo_path.read_bytes()
+    assert logo_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    assert struct.unpack(">II", logo_bytes[16:24]) == (512, 512)
     assert 'class="brand-mark" src="assets/xgbffp-logo.png' in index_html
     assert 'rel="icon" type="image/png" href="assets/xgbffp-logo.png' in index_html
     assert 'rel="apple-touch-icon" href="assets/xgbffp-logo.png' in index_html
@@ -227,6 +230,11 @@ def test_published_manifests_and_verification_contracts():
     assert 'id="single-radar-toggle" type="checkbox"' in index_html
     assert 'id="radar-station-select" disabled' in index_html
     assert 'id="single-radar-play-toggle" type="button" disabled' in index_html
+    assert 'id="product-nav-highlight" class="product-nav-highlight"' in index_html
+    assert 'id="continuous-probability-toggle" type="checkbox"' in index_html
+    assert 'id="continuous-probability-legend"' in index_html
+    assert "Radar is available only when its current scans fall inside" in index_html
+    assert "Historical cases retain their archived flood-proxy observations" in index_html
     assert "Click a radar-site point on the 2D map" in index_html
     assert '<div class="product-message">' in index_html
     assert 'id="product-message-toggle" type="button" aria-expanded="false"' in index_html
@@ -274,6 +282,16 @@ def test_published_manifests_and_verification_contracts():
     assert "function activateSingleRadarStation" in app_javascript
     assert "function startSingleRadarAnimation" in app_javascript
     assert "function setProductMessageExpanded" in app_javascript
+    assert "function updateProductNavHighlight" in app_javascript
+    assert "document.startViewTransition" in app_javascript
+    assert "function selectedCaseSupportsLiveLayers" in app_javascript
+    assert "function updateTemporalLayerAvailability" in app_javascript
+    assert "function continuousProbabilityActive" in app_javascript
+    assert '{ threshold: 100, color: "#31004d" }' in app_javascript
+    assert 'selectedCaseSupportsLiveLayers(state.data?.date, Number(frame.time) * 1000)' in app_javascript
+    assert '.product-nav-highlight' in stylesheet
+    assert '::view-transition-new(root)' in stylesheet
+    assert '.continuous-probability-gradient' in stylesheet
     marker_renderer = app_javascript[
         app_javascript.index("function renderRadarStationMarkers"):
         app_javascript.index("async function fetchRadarStations")

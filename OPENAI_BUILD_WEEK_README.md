@@ -126,6 +126,23 @@ work; and linked the published Gallus et al. paper to its authoritative journal
 record. Codex then checked the new route, local assets, HTML structure,
 JavaScript syntax, CSS structure, and desktop/mobile presentation.
 
+The same July 26 interface pass also used Codex to:
+
+- enlarge and outline the primary Forecast, Model Skill, Running Verification,
+  Explainability, and About tabs, then add a sliding active-tab highlight and
+  directional page transitions with reduced-motion support;
+- prevent current composite/single-site radar, current IEM local storm
+  reports, and active NWS flood alerts from being displayed with an archived
+  forecast whose 12Z–12Z valid period does not contain those live data;
+- retain archived flood-proxy observations as the appropriate observation
+  layer for older verified cases;
+- add an ML-only continuous-probability option for the 2D map, interpolating
+  through the established Marginal, Slight, Moderate, and High colors and
+  extending probabilities above 70% into dark purple at 100%, with a
+  dynamically switching continuous legend; and
+- replace the header, browser-tab, and mobile icon asset with the project
+  lead's updated XGBFFP artwork while optimizing its delivered PNG size.
+
 ### Improving ML-code efficiency
 
 GPT-5.6/Codex was also used to inspect and improve the large XGBoost training
