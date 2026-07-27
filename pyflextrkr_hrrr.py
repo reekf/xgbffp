@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the actual PyFLEXTRKR radar-MCS pipeline on HRRR SBT and REFC fields."""
+"""Run the actual PyFLEXTRKR radar-MCS pipeline on model SBT and REFC fields."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ DEFAULT_PYFLEXTRKR_PYTHON = Path(
         "/home/tyreekfrazier/.conda/envs/xgbffp-pyflextrkr/bin/python",
     )
 )
-ADAPTER_SCHEMA_VERSION = 1
+ADAPTER_SCHEMA_VERSION = 2
 PINNED_PYFLEXTRKR_COMMIT = "6a3a6435ee6b3a64ec411b9f2af38226d6f32850"
 VERTICAL_LEVELS_KM = np.arange(1.0, 11.0, dtype=np.float32)
 
@@ -51,6 +51,17 @@ def write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n")
 
 
+def _structural_only_tb(reflectivity: np.ndarray) -> np.ndarray:
+    """Create a neutral interior cloud object solely to run PyFLEXTRKR PF stages."""
+    ref = np.asarray(reflectivity)
+    out = np.full(ref.shape, 300.0, dtype=float)
+    if ref.ndim != 2 or min(ref.shape) < 3:
+        raise ValueError("Structural-only PyFLEXTRKR input must be a 2D grid at least 3x3")
+    interior = np.isfinite(ref[1:-1, 1:-1])
+    out[1:-1, 1:-1] = np.where(interior, 220.0, 300.0)
+    return out
+
+
 def _case_signature(
     run_date: str,
     cycle: str,
@@ -67,6 +78,8 @@ def _case_signature(
     overlap_threshold: float,
     extent: tuple[float, float, float, float],
     cell_area_km2: float,
+    source_model: str,
+    ir_required: bool,
 ) -> dict:
     return {
         "adapter_schema_version": ADAPTER_SCHEMA_VERSION,
@@ -86,9 +99,11 @@ def _case_signature(
         "overlap_threshold": float(overlap_threshold),
         "extent": [float(value) for value in extent],
         "cell_area_km2": float(cell_area_km2),
+        "source_model": str(source_model).upper(),
+        "ir_required": bool(ir_required),
         "pyflextrkr_upstream_commit": PINNED_PYFLEXTRKR_COMMIT,
         "reflectivity_representation": (
-            "HRRR REFC composite replicated on compatibility height levels; "
+            f"{str(source_model).upper()} REFC composite replicated on compatibility height levels; "
             "used only to express reflectivity present at any vertical level"
         ),
     }
@@ -102,6 +117,7 @@ def _write_hourly_netcdf(
     lat: np.ndarray,
     lon: np.ndarray,
     precipitation_threshold_dbz: float,
+    source_model: str,
 ) -> None:
     from netCDF4 import Dataset, date2num
 
@@ -140,7 +156,7 @@ def _write_hourly_netcdf(
 
         # PyFLEXTRKR's radar matcher identifies precipitation features from
         # the precipitation variable. This binary-valued proxy makes those
-        # features exactly the connected HRRR REFC >=25-dBZ regions.
+        # features exactly the connected model REFC >=25-dBZ regions.
         rainrate = np.where(
             np.isfinite(refc) & (refc >= float(precipitation_threshold_dbz)),
             3.0,
@@ -164,7 +180,8 @@ def _write_hourly_netcdf(
             fill_value=np.float32(np.nan),
         )
         refl_var.units = "dBZ"
-        refl_var.long_name = "HRRR composite reflectivity compatibility column"
+        source_model = str(source_model).upper()
+        refl_var.long_name = f"{source_model} composite reflectivity compatibility column"
         refl_var.comment = (
             "REFC is the column maximum, so it is repeated over compatibility "
             "levels solely to encode exceedance at any vertical level. It is not "
@@ -181,7 +198,7 @@ def _write_hourly_netcdf(
         melt_var.units = "km above mean sea level"
         melt_var[:] = np.full((1, ny, nx), 4.0, dtype=np.float32)
 
-        ds.title = "HRRR fields prepared for XGBFFP PyFLEXTRKR MCS classification"
+        ds.title = f"{source_model} fields prepared for XGBFFP PyFLEXTRKR MCS classification"
         ds.history = f"Created {datetime.now(timezone.utc).isoformat()}"
         ds.pyflextrkr_input_contract = "tb_pf_radar3d"
         ds.refc_any_vertical_level_proxy = "true"
@@ -205,6 +222,7 @@ def _config(
     structural_duration_hours: int,
     overlap_threshold: float,
     cell_area_km2: float,
+    source_model: str = "HRRR",
 ) -> dict:
     init = datetime.strptime(run_date + cycle, "%Y%m%d%H").replace(tzinfo=timezone.utc)
     end = init.timestamp() + int(last_fhr) * 3600
@@ -217,7 +235,7 @@ def _config(
         "startdate": init.strftime("%Y%m%d.%H%M"),
         "enddate": end_dt.strftime("%Y%m%d.%H%M"),
         "time_format": "yyyy-mo-dd_hh:mm:ss",
-        "databasename": "hrrr_pyflex_",
+        "databasename": f"{str(source_model).lower()}_pyflex_",
         "clouddata_path": str(input_dir) + "/",
         "root_path": str(output_dir),
         "tracking_path_name": "tracking",
@@ -353,15 +371,27 @@ def prepare_and_run_pyflextrkr(
     cell_area_km2: float = 9.0,
     pyflextrkr_python: Path = DEFAULT_PYFLEXTRKR_PYTHON,
     force: bool = False,
+    source_model: str = "HRRR",
+    ir_required: bool = True,
 ) -> PyFLEXTRKRResult:
-    fhrs = sorted(set(ir_by_fhr) & set(reflectivity_by_fhr))
-    if len(fhrs) != len(ir_by_fhr):
+    source_model = str(source_model).upper()
+    if ir_required:
+        fhrs = sorted(set(ir_by_fhr) & set(reflectivity_by_fhr))
+    else:
+        fhrs = sorted(reflectivity_by_fhr)
+        ir_by_fhr = {
+            fhr: _structural_only_tb(reflectivity_by_fhr[fhr])
+            for fhr in fhrs
+        }
+        cloud_area_threshold_km2 = 0.0
+        cloud_duration_hours = 1
+    if ir_required and len(fhrs) != len(ir_by_fhr):
         raise RuntimeError(
             "PyFLEXTRKR requires collocated IR and REFC for every forecast hour: "
             f"IR={len(ir_by_fhr)} common={len(fhrs)}"
         )
     if not fhrs:
-        raise RuntimeError("No collocated HRRR fields are available for PyFLEXTRKR")
+        raise RuntimeError(f"No collocated {source_model} fields are available for PyFLEXTRKR")
     shape = np.asarray(ir_by_fhr[fhrs[0]]).shape
     if any(np.asarray(ir_by_fhr[fhr]).shape != shape for fhr in fhrs):
         raise ValueError("IR grid shape changes within PyFLEXTRKR input")
@@ -392,12 +422,26 @@ def prepare_and_run_pyflextrkr(
         overlap_threshold=overlap_threshold,
         extent=extent,
         cell_area_km2=cell_area_km2,
+        source_model=source_model,
+        ir_required=ir_required,
     )
     previous = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
-    if force or previous.get("signature") != signature:
-        previous_signature = previous.get("signature", {})
+    previous_signature = previous.get("signature", {})
+    signature_changed = previous_signature != signature
+    legacy_hrrr_signature = (
+        source_model == "HRRR"
+        and ir_required
+        and previous_signature.get("adapter_schema_version") == 1
+        and all(
+            previous_signature.get(key) == value
+            for key, value in signature.items()
+            if key not in {"adapter_schema_version", "source_model", "ir_required"}
+        )
+    )
+    if force or (signature_changed and not legacy_hrrr_signature):
         input_keys = {
-            "run_date", "cycle", "forecast_hours", "grid_shape",
+            "run_date", "cycle", "forecast_hours", "grid_shape", "source_model",
+            "ir_required",
             "precipitation_threshold_dbz", "reflectivity_representation",
         }
         input_is_compatible = bool(previous_signature) and all(
@@ -414,7 +458,7 @@ def prepare_and_run_pyflextrkr(
     input_files = []
     for fhr in fhrs:
         valid = datetime.fromtimestamp(init.timestamp() + fhr * 3600, tz=timezone.utc)
-        path = input_dir / f"hrrr_pyflex_{valid:%Y-%m-%d_%H:%M:%S}.nc"
+        path = input_dir / f"{source_model.lower()}_pyflex_{valid:%Y-%m-%d_%H:%M:%S}.nc"
         if force or not path.is_file():
             _write_hourly_netcdf(
                 path,
@@ -424,6 +468,7 @@ def prepare_and_run_pyflextrkr(
                 np.asarray(lat, dtype=float),
                 np.asarray(lon, dtype=float),
                 precipitation_threshold_dbz,
+                source_model,
             )
         input_files.append({"fhr": fhr, "path": str(path), "bytes": path.stat().st_size})
     write_json(
@@ -450,6 +495,7 @@ def prepare_and_run_pyflextrkr(
         structural_duration_hours=structural_duration_hours,
         overlap_threshold=overlap_threshold,
         cell_area_km2=cell_area_km2,
+        source_model=source_model,
     )
     write_json(config_path, config)
     if result_path.is_file():

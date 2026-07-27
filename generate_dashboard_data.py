@@ -269,11 +269,13 @@ def season_bounds(day: date) -> tuple[date, date, str]:
     return date(day.year, 9, 1), date(day.year, 11, 30), "SON"
 
 
-def select_windows(records: list[dict]) -> dict[str, tuple[list[dict], date, date, str]]:
-    if not records:
+def select_windows(
+    records: list[dict], anchor_date: date | None = None
+) -> dict[str, tuple[list[dict], date, date, str]]:
+    if not records and anchor_date is None:
         return {}
     ordered = sorted(records, key=lambda row: row["date"])
-    latest = parse_date(ordered[-1]["date"])
+    latest = parse_date(ordered[-1]["date"]) if ordered else anchor_date
     monthly_start = latest - timedelta(days=29)
     seasonal_start, seasonal_end, season = season_bounds(latest)
     return {
@@ -386,7 +388,7 @@ def aggregate_window(
         reference
         for reference in REFERENCE_META
         if any(reference in record.get("references", {}) for record in records)
-    ] or [DEFAULT_REFERENCE]
+    ] or list(REFERENCE_META)
     for reference in available_references:
         references[reference] = {
             **REFERENCE_META[reference],
@@ -620,8 +622,16 @@ def publish_realtime_verification(docs_dir: Path, generated: str) -> dict:
             stale.unlink()
     for record in records:
         write_json(output_root / f"daily/{record['date']}.json", record)
+    archive_dates = sorted(
+        parse_date(path.name)
+        for path in (docs_dir / "archive").glob("20??????")
+        if path.is_dir()
+    )
+    anchor_date = archive_dates[-1] if archive_dates else None
     windows = {}
-    for name, (selected, start, end, definition) in select_windows(records).items():
+    for name, (selected, start, end, definition) in select_windows(
+        records, anchor_date=anchor_date
+    ).items():
         window = aggregate_window(selected, start, end, definition, name)
         window["generated_utc"] = generated
         windows[name] = window

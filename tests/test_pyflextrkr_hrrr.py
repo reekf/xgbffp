@@ -87,8 +87,36 @@ def test_five_cloud_hours_do_not_meet_six_hour_requirement():
     assert not result.detected
 
 
+def test_rap_structure_only_fallback_still_requires_four_hours():
+    _, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=4)
+    with tempfile.TemporaryDirectory(prefix="xgbffp-pyflex-rap-no-ir-", dir="/tmp") as tmp:
+        result = prepare_and_run_pyflextrkr(
+            {}, refc, lat, lon,
+            run_date="20260727", cycle="09", case_dir=Path(tmp),
+            extent=(-102, -94, 30, 36), cell_area_km2=100,
+            source_model="RAP", ir_required=False,
+        )
+    assert result.structural_duration_met
+    assert result.detected
+
+
+def test_rap_structure_only_fallback_rejects_three_hours():
+    _, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=3)
+    with tempfile.TemporaryDirectory(prefix="xgbffp-pyflex-rap-short-", dir="/tmp") as tmp:
+        result = prepare_and_run_pyflextrkr(
+            {}, refc, lat, lon,
+            run_date="20260727", cycle="09", case_dir=Path(tmp),
+            extent=(-102, -94, 30, 36), cell_area_km2=100,
+            source_model="RAP", ir_required=False,
+        )
+    assert not result.structural_duration_met
+    assert not result.detected
+
+
 if __name__ == "__main__":
     test_config_uses_requested_modified_criteria()
     test_official_pyflextrkr_pipeline_detects_synthetic_case()
     test_five_cloud_hours_do_not_meet_six_hour_requirement()
-    print("Actual PyFLEXTRKR HRRR adapter tests passed")
+    test_rap_structure_only_fallback_still_requires_four_hours()
+    test_rap_structure_only_fallback_rejects_three_hours()
+    print("Actual PyFLEXTRKR model adapter tests passed")

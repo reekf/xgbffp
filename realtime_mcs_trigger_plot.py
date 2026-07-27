@@ -5,13 +5,16 @@ Standalone realtime ML probability plotter with an internal generation gate. Che
 Run from shell/cron/systemd. It does NOT require a notebook session.
 
 Core workflow:
-  1) Download/read HRRR simulated brightness temperature and composite reflectivity
-     for the requested cycle/fhr range. Track overlapping cold-cloud objects through
-     time using the actual PyFLEXTRKR lifecycle pipeline. Default: 12Z HRRR, f00-f24,
+  1) Download/read HRRR and RAP simulated brightness temperature and composite
+     reflectivity for the common 12Z-to-12Z valid window. Track objects through
+     time using the actual PyFLEXTRKR lifecycle pipeline. Default: 12Z HRRR f00-f24
+     and 09Z RAP f03-f27,
      SBT < 241 K, cold shield >6.0e4 km^2 for at least 6 hours, embedded >=25 dBZ precipitation
      feature with major axis >100 km and reflectivity >45 dBZ, with every
      precipitation/convective criterion lasting at least 4 consecutive hours.
-  2) If the HRRR MCS trigger fires, build realtime features using the generated v33
+     Both models must qualify. If RAP SBT is absent from the product, RAP uses the
+     same structural criteria without an IR requirement; HRRR always requires IR.
+  2) If the dual-model MCS trigger fires, build realtime features using the generated v33
      helper script used during training. The helper's GRIB validation is patched to
      avoid a pygrib/eccodes segfault observed on Python 3.14.
   3) Load saved model/scaler/feature-name artifacts for each requested radius.
@@ -2067,6 +2070,11 @@ class MCSDetectionResult:
     summary_path: str | None = None
     ir_debug_image: str | None = None
     qpf6_debug_image: str | None = None
+    hrrr_triggered: bool | None = None
+    rap_triggered: bool | None = None
+    rap_ir_available: bool | None = None
+    rap_ir_required: bool | None = None
+    model_results: dict | None = None
 
 
 HRRR_NOMADS_BASE = "https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl"
@@ -2079,6 +2087,11 @@ HRRR_DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 180
 HRRR_DEFAULT_MAX_DOWNLOAD_ATTEMPTS = 4
 HRRR_DEFAULT_DOWNLOAD_RETRY_SECONDS = 20
 HRRR_DEFAULT_NOMADS_PAUSE_SECONDS = 0.25
+RAP_AWS_BASE = "https://noaa-rap-pds.s3.amazonaws.com"
+RAP_DEFAULT_CYCLE = "09"
+RAP_DEFAULT_FHR_START = 3
+RAP_DEFAULT_FHR_END = 27
+RAP_DEFAULT_CELL_AREA_KM2 = 169.0
 QPF6_THRESHOLD_MM_DEFAULT = 50.8
 QPF6_AREA_THRESHOLD_KM2_DEFAULT = 0.0
 
@@ -2124,6 +2137,17 @@ def hrrr_aws_url(run_date: str, cycle: str, fhr: int) -> str:
     )
 
 
+def rap_filename(cycle: str, fhr: int) -> str:
+    return f"rap.t{int(cycle):02d}z.awp130pgrbf{int(fhr):02d}.grib2"
+
+
+def rap_aws_url(run_date: str, cycle: str, fhr: int) -> str:
+    return (
+        f"{RAP_AWS_BASE}/rap.{date8(run_date)}/"
+        f"{rap_filename(cycle, fhr)}"
+    )
+
+
 def selected_hrrr_source(run_date: str, requested: str) -> str:
     if requested != "auto":
         return requested
@@ -2144,30 +2168,27 @@ def is_complete_grib_file(path: str | Path) -> bool:
         return handle.read(4) == b"7777"
 
 
-def download_aws_grib_records(
+def download_indexed_grib_records(
     session,
-    run_date: str,
-    cycle: str,
-    fhr: int,
+    data_url: str,
     selections: list[tuple[str, str]],
     out_path: str | Path,
     *,
     timeout: int,
     overwrite: bool = False,
 ) -> Path:
-    """Download selected HRRR GRIB records with byte ranges from NOAA's archive."""
+    """Download selected GRIB records with byte ranges from a NOAA archive."""
     out_path = Path(out_path).expanduser()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if not overwrite and is_complete_grib_file(out_path):
         return out_path
-    data_url = hrrr_aws_url(run_date, cycle, fhr)
     idx_url = data_url + ".idx"
-    cache = getattr(session, "_xgbffp_hrrr_idx_cache", {})
+    cache = getattr(session, "_xgbffp_grib_idx_cache", {})
     if idx_url not in cache:
         response = session.get(idx_url, timeout=int(timeout))
         response.raise_for_status()
         cache[idx_url] = response.text
-        session._xgbffp_hrrr_idx_cache = cache
+        session._xgbffp_grib_idx_cache = cache
     entries = []
     for line in cache[idx_url].splitlines():
         parts = line.split(":")
@@ -2178,7 +2199,7 @@ def download_aws_grib_records(
         except ValueError:
             continue
     if not entries:
-        raise RuntimeError(f"No parsable HRRR index entries: {idx_url}")
+        raise RuntimeError(f"No parsable GRIB index entries: {idx_url}")
     selected_entries = []
     for variable, level_text in selections:
         match = next(
@@ -2212,7 +2233,7 @@ def download_aws_grib_records(
         )
         if response.status_code not in (200, 206):
             raise RuntimeError(
-                f"NOAA HRRR archive returned {response.status_code} for {selected['line']}"
+                f"NOAA model archive returned {response.status_code} for {selected['line']}"
             )
         chunk = response.content
         if response.status_code == 200 and len(chunk) > end - int(selected["start"]) + 1:
@@ -2226,6 +2247,72 @@ def download_aws_grib_records(
             handle.write(chunk)
     part_path.replace(out_path)
     return out_path
+
+
+def download_aws_grib_records(
+    session,
+    run_date: str,
+    cycle: str,
+    fhr: int,
+    selections: list[tuple[str, str]],
+    out_path: str | Path,
+    *,
+    timeout: int,
+    overwrite: bool = False,
+) -> Path:
+    """Download selected HRRR GRIB records with byte ranges from NOAA's archive."""
+    return download_indexed_grib_records(
+        session,
+        hrrr_aws_url(run_date, cycle, fhr),
+        selections,
+        out_path,
+        timeout=timeout,
+        overwrite=overwrite,
+    )
+
+
+def download_rap_field_subset(
+    session,
+    run_date: str,
+    cycle: str,
+    fhr: int,
+    out_dir: str | Path,
+    field: str,
+    args,
+) -> tuple[Path, str]:
+    field = field.upper()
+    levels = {
+        "REFC": "entire atmosphere",
+        "SBT123": "top of atmosphere",
+        "SBT124": "top of atmosphere",
+    }
+    if field == "SBT":
+        absent = []
+        for candidate in ("SBT123", "SBT124"):
+            try:
+                return download_rap_field_subset(
+                    session, run_date, cycle, fhr, out_dir, candidate, args
+                )
+            except Exception as exc:
+                if "is absent from" not in str(exc):
+                    raise
+                absent.append(str(exc))
+        raise RuntimeError("RAP SBT123 and SBT124 are absent: " + "; ".join(absent))
+    if field not in levels:
+        raise ValueError(f"Unsupported RAP gate field: {field}")
+    data_url = rap_aws_url(run_date, cycle, fhr)
+    out_path = Path(out_dir) / (
+        f"rap_{date8(run_date)}_t{int(cycle):02d}z_f{int(fhr):02d}_{field}.grib2"
+    )
+    path = download_indexed_grib_records(
+        session,
+        data_url,
+        [(field, levels[field])],
+        out_path,
+        timeout=args.hrrr_download_timeout,
+        overwrite=args.force_rap_download,
+    )
+    return path, data_url
 
 
 def download_hrrr_field_subset(
@@ -2914,6 +3001,8 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         overlap_threshold=float(args.track_overlap_threshold),
         cell_area_km2=float(args.hrrr_cell_area_km2),
         force=bool(args.force_pyflextrkr or args.force_hrrr_download),
+        source_model="HRRR",
+        ir_required=True,
     )
     summary["reflectivity_records"] = [
         {
@@ -3153,6 +3242,271 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     return res, selected_mask, lat, lon, ir_by_fhr.get(debug_fhr)
 
 
+def run_rap_mcs_detection(args, rp: RuntimePaths) -> dict:
+    """Run the RAP side of the dual-model gate for the same 12Z-to-12Z window."""
+    d = date8(args.date)
+    cycle = f"{int(args.rap_cycle):02d}"
+    fhr_start = int(args.rap_fhr_start)
+    fhr_end = int(args.rap_fhr_end)
+    expected_fhrs = list(range(fhr_start, fhr_end + 1))
+    cache_dir = (
+        Path(args.rap_trigger_cache_dir).expanduser()
+        if args.rap_trigger_cache_dir
+        else rp.cache_dir / "rap_mcs_trigger_inputs" / f"{d}_{cycle}z"
+    )
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = cache_dir / f"rap_mcs_trigger_summary_{d}_{cycle}z.json"
+    summary = {
+        "run_date": d,
+        "rap_cycle": cycle,
+        "fhr_start": fhr_start,
+        "fhr_end": fhr_end,
+        "valid_start_utc": hrrr_valid_time_utc(d, cycle, fhr_start).isoformat(),
+        "valid_end_utc": hrrr_valid_time_utc(d, cycle, fhr_end).isoformat(),
+        "bbox": extent_dict(args.extent),
+        "ir_area_threshold_km2": float(args.min_mcs_area_km2),
+        "ir_duration_threshold_hours": int(args.mcs_cloud_duration_hours),
+        "structural_duration_threshold_hours": int(args.mcs_structural_duration_hours),
+        "precipitation_threshold_dbz": float(args.precipitation_threshold_dbz),
+        "precipitation_major_axis_threshold_km": float(args.precipitation_major_axis_km),
+        "convective_threshold_dbz": float(args.convective_threshold_dbz),
+        "cell_area_km2_used": float(args.rap_cell_area_km2),
+        "ir_records": [],
+        "reflectivity_records": [],
+        "download_errors": [],
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    log("================================================================================")
+    log("RAP MCS trigger detection")
+    log("================================================================================")
+    log(
+        f"Date={d} RAP cycle={cycle}Z fhr={fhr_start:02d}-{fhr_end:02d}; "
+        "valid window must match HRRR 12Z f00-f24"
+    )
+
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests is required for RAP MCS-gate downloads") from exc
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 xgbffp-rap-mcs-gate/1.0"})
+
+    reflectivity_by_fhr: dict[int, np.ndarray] = {}
+    ir_by_fhr: dict[int, np.ndarray] = {}
+    lat = None
+    lon = None
+    ir_absent_fhrs: list[int] = []
+    ir_other_errors: list[tuple[int, Exception]] = []
+
+    for fhr in expected_fhrs:
+        try:
+            path, _ = download_rap_field_subset(
+                session, d, cycle, fhr, cache_dir, "REFC", args
+            )
+            selected = select_refc_field(read_grib_all_fields(path))
+            data, field_lat, field_lon = subset_field_to_extent(
+                np.asarray(selected["data"], dtype=float).squeeze(),
+                selected["lat"],
+                selected["lon"],
+                args.extent,
+            )
+            if data.ndim != 2:
+                raise RuntimeError(f"RAP REFC f{fhr:02d} has non-2D shape {data.shape}")
+            reflectivity_by_fhr[fhr] = data
+            if lat is None:
+                lat, lon = field_lat, field_lon
+            summary["reflectivity_records"].append({
+                "fhr": fhr,
+                "valid_utc": hrrr_valid_time_utc(d, cycle, fhr).isoformat(),
+                "max_reflectivity_dbz": float(np.nanmax(data)),
+            })
+        except Exception as exc:
+            summary["download_errors"].append(
+                {"field": "REFC", "fhr": fhr, "error": str(exc)}
+            )
+
+        try:
+            path, _ = download_rap_field_subset(
+                session, d, cycle, fhr, cache_dir, "SBT", args
+            )
+            selected = select_ir_field(read_grib_all_fields(path))
+            data, _, _ = subset_field_to_extent(
+                np.asarray(selected["data"], dtype=float).squeeze(),
+                selected["lat"],
+                selected["lon"],
+                args.extent,
+            )
+            if data.ndim != 2:
+                raise RuntimeError(f"RAP SBT f{fhr:02d} has non-2D shape {data.shape}")
+            ir_by_fhr[fhr] = data
+        except Exception as exc:
+            if "is absent from" in str(exc):
+                ir_absent_fhrs.append(fhr)
+            else:
+                ir_other_errors.append((fhr, exc))
+            summary["download_errors"].append(
+                {"field": "SBT123/SBT124", "fhr": fhr, "error": str(exc)}
+            )
+
+    missing_refc = sorted(set(expected_fhrs) - set(reflectivity_by_fhr))
+    if missing_refc:
+        summary_path.write_text(json.dumps(summary, indent=2, default=str))
+        raise RuntimeError(
+            "RAP structural gate is incomplete; missing REFC hours: "
+            + ", ".join(f"f{fhr:02d}" for fhr in missing_refc)
+        )
+    if ir_other_errors:
+        summary_path.write_text(json.dumps(summary, indent=2, default=str))
+        raise RuntimeError(
+            "RAP SBT could not be evaluated because of download/read failures: "
+            + "; ".join(f"f{fhr:02d}: {exc}" for fhr, exc in ir_other_errors[:5])
+        )
+    if ir_by_fhr and len(ir_by_fhr) != len(expected_fhrs):
+        summary_path.write_text(json.dumps(summary, indent=2, default=str))
+        raise RuntimeError(
+            "RAP SBT is only partially available; refusing to bypass the IR criterion"
+        )
+
+    ir_available = len(ir_by_fhr) == len(expected_fhrs)
+    if not ir_available and len(ir_absent_fhrs) != len(expected_fhrs):
+        summary_path.write_text(json.dumps(summary, indent=2, default=str))
+        raise RuntimeError("RAP SBT availability could not be determined safely")
+    summary["ir_available"] = ir_available
+    summary["ir_required"] = ir_available
+    summary["ir_requirement_mode"] = (
+        "full_simulated_satellite" if ir_available else "excluded_field_absent"
+    )
+
+    if ir_available:
+        for fhr in expected_fhrs:
+            bt = ir_by_fhr[fhr]
+            comp = largest_component(
+                threshold_mask(bt, args.bt_threshold_k, args.bt_threshold_operator),
+                cell_area_km2=args.rap_cell_area_km2,
+            )
+            summary["ir_records"].append({
+                "fhr": fhr,
+                "valid_utc": hrrr_valid_time_utc(d, cycle, fhr).isoformat(),
+                "min_bt_k": float(np.nanmin(bt)),
+                "max_ir_component_area_km2": float(comp["max_area_km2"]),
+            })
+
+    pyflex = prepare_and_run_pyflextrkr(
+        ir_by_fhr,
+        reflectivity_by_fhr,
+        lat,
+        lon,
+        run_date=d,
+        cycle=cycle,
+        case_dir=cache_dir,
+        extent=tuple(args.extent),
+        bt_threshold_k=float(args.bt_threshold_k),
+        cloud_area_threshold_km2=float(args.min_mcs_area_km2),
+        precipitation_threshold_dbz=float(args.precipitation_threshold_dbz),
+        precipitation_major_axis_threshold_km=float(args.precipitation_major_axis_km),
+        convective_threshold_dbz=float(args.convective_threshold_dbz),
+        cloud_duration_hours=int(args.mcs_cloud_duration_hours),
+        structural_duration_hours=int(args.mcs_structural_duration_hours),
+        overlap_threshold=float(args.track_overlap_threshold),
+        cell_area_km2=float(args.rap_cell_area_km2),
+        force=bool(args.force_pyflextrkr or args.force_rap_download),
+        source_model="RAP",
+        ir_required=ir_available,
+    )
+    rap_triggered = bool(
+        pyflex.structural_duration_met
+        and (pyflex.ir_duration_met if ir_available else True)
+    )
+    summary.update({
+        "mcs_method": "actual_pyflextrkr",
+        "mcs_detected": rap_triggered,
+        "ir_duration_met": bool(pyflex.ir_duration_met) if ir_available else None,
+        "structural_duration_met": bool(pyflex.structural_duration_met),
+        "max_ir_duration_hours": int(pyflex.max_ir_duration_hours) if ir_available else None,
+        "max_joint_duration_hours": int(pyflex.max_joint_duration_hours),
+        "selected_fhr": pyflex.selected_fhr,
+        "pyflextrkr_package_version": pyflex.package_version,
+        "pyflextrkr_upstream_commit": pyflex.upstream_commit,
+        "pyflextrkr_result_path": pyflex.result_path,
+        "pyflextrkr_config_path": pyflex.config_path,
+        "pyflextrkr_input_manifest_path": pyflex.input_manifest_path,
+        "pyflextrkr_robust_stats_path": pyflex.robust_stats_path,
+        "pyflextrkr_official_steps_completed": pyflex.official_steps_completed,
+    })
+    summary_path.write_text(json.dumps(summary, indent=2, default=str))
+    log(
+        f"RAP PyFLEXTRKR result: ir_available={ir_available} "
+        f"ir_duration_met={summary['ir_duration_met']} "
+        f"structural_duration_met={pyflex.structural_duration_met} "
+        f"triggered={rap_triggered}"
+    )
+    return summary
+
+
+def combine_hrrr_rap_gate(
+    hrrr_result: MCSDetectionResult,
+    rap_summary: dict,
+    mask: np.ndarray | None,
+    lat: np.ndarray | None,
+    lon: np.ndarray | None,
+    bt: np.ndarray | None,
+) -> MCSDetectionResult:
+    """Require independent HRRR and RAP qualification and persist child-safe metadata."""
+    hrrr_triggered = bool(hrrr_result.triggered)
+    rap_triggered = bool(rap_summary.get("mcs_detected"))
+    overall = bool(hrrr_triggered and rap_triggered)
+    model_results = {
+        "hrrr": {
+            "triggered": hrrr_triggered,
+            "ir_available": True,
+            "ir_required": True,
+            "ir_duration_met": hrrr_result.ir_duration_met,
+            "structural_duration_met": hrrr_result.structural_duration_met,
+            "max_ir_duration_hours": hrrr_result.max_ir_duration_hours,
+            "max_joint_duration_hours": hrrr_result.max_joint_duration_hours,
+            "cycle": hrrr_result.hrrr_cycle,
+        },
+        "rap": {
+            "triggered": rap_triggered,
+            "ir_available": bool(rap_summary.get("ir_available")),
+            "ir_required": bool(rap_summary.get("ir_required")),
+            "ir_requirement_mode": rap_summary.get("ir_requirement_mode"),
+            "ir_duration_met": rap_summary.get("ir_duration_met"),
+            "structural_duration_met": rap_summary.get("structural_duration_met"),
+            "max_ir_duration_hours": rap_summary.get("max_ir_duration_hours"),
+            "max_joint_duration_hours": rap_summary.get("max_joint_duration_hours"),
+            "cycle": rap_summary.get("rap_cycle"),
+            "summary_path": rap_summary.get("summary_path"),
+        },
+    }
+    hrrr_result.triggered = overall
+    hrrr_result.hrrr_triggered = hrrr_triggered
+    hrrr_result.rap_triggered = rap_triggered
+    hrrr_result.rap_ir_available = bool(rap_summary.get("ir_available"))
+    hrrr_result.rap_ir_required = bool(rap_summary.get("ir_required"))
+    hrrr_result.model_results = model_results
+    hrrr_result.source = "Dual-model actual PyFLEXTRKR gate using HRRR and RAP"
+
+    if hrrr_result.summary_path:
+        summary_path = Path(hrrr_result.summary_path)
+        summary = json.loads(summary_path.read_text())
+        summary["hrrr_mcs_detected"] = hrrr_triggered
+        summary["rap_mcs_detection"] = rap_summary
+        summary["dual_model_gate"] = {
+            "required_models": ["HRRR", "RAP"],
+            "hrrr_triggered": hrrr_triggered,
+            "rap_triggered": rap_triggered,
+            "mcs_detected": overall,
+        }
+        summary["mcs_detected"] = overall
+        summary_path.write_text(json.dumps(summary, indent=2, default=str))
+        if hrrr_result.mask_path and mask is not None and lat is not None and lon is not None:
+            write_mcs_mask_npz(
+                Path(hrrr_result.mask_path), mask, lat, lon, bt, {"summary": summary}
+            )
+    return hrrr_result
+
+
 def get_mcs_detection(args, rp: RuntimePaths):
     d = date8(args.date)
     if args.mcs_mask_path:
@@ -3205,6 +3559,18 @@ def get_mcs_detection(args, rp: RuntimePaths):
             pyflextrkr_config_path=lifecycle_summary.get("pyflextrkr_config_path"),
             pyflextrkr_input_manifest_path=lifecycle_summary.get("pyflextrkr_input_manifest_path"),
             pyflextrkr_official_steps_completed=lifecycle_summary.get("pyflextrkr_official_steps_completed"),
+            hrrr_triggered=(lifecycle_summary.get("dual_model_gate") or {}).get("hrrr_triggered"),
+            rap_triggered=(lifecycle_summary.get("dual_model_gate") or {}).get("rap_triggered"),
+            rap_ir_available=(lifecycle_summary.get("rap_mcs_detection") or {}).get("ir_available"),
+            rap_ir_required=(lifecycle_summary.get("rap_mcs_detection") or {}).get("ir_required"),
+            model_results={
+                "hrrr": {
+                    "triggered": (lifecycle_summary.get("dual_model_gate") or {}).get("hrrr_triggered"),
+                    "ir_duration_met": lifecycle_summary.get("ir_duration_met"),
+                    "structural_duration_met": lifecycle_summary.get("structural_duration_met"),
+                },
+                "rap": lifecycle_summary.get("rap_mcs_detection") or {},
+            },
         )
         return res, mask, lat, lon, bt
     if args.force_trigger and not args.ir_path and not args.run_hrrr_detector:
@@ -3212,7 +3578,22 @@ def get_mcs_detection(args, rp: RuntimePaths):
         return res, None, None, None, None
     if not args.run_hrrr_detector and not args.ir_path:
         raise RuntimeError("No MCS source supplied. Use default --run-hrrr-detector, pass --mcs-mask-path, or use --force-trigger.")
-    return run_hrrr_mcs_detection(args, rp)
+    hrrr_result, mask, lat, lon, bt = run_hrrr_mcs_detection(args, rp)
+    if not args.run_rap_detector:
+        if not args.force_trigger:
+            raise RuntimeError(
+                "The operational gate requires RAP. Use --force-trigger only for an explicit override."
+            )
+        return hrrr_result, mask, lat, lon, bt
+    rap_summary = run_rap_mcs_detection(args, rp)
+    rap_summary["summary_path"] = str(
+        (Path(args.rap_trigger_cache_dir).expanduser()
+         if args.rap_trigger_cache_dir
+         else rp.cache_dir / "rap_mcs_trigger_inputs" / f"{d}_{int(args.rap_cycle):02d}z")
+        / f"rap_mcs_trigger_summary_{d}_{int(args.rap_cycle):02d}z.json"
+    )
+    combined = combine_hrrr_rap_gate(hrrr_result, rap_summary, mask, lat, lon, bt)
+    return combined, mask, lat, lon, bt
 
 
 
@@ -3421,6 +3802,13 @@ def parse_args(argv=None):
     p.add_argument("--hrrr-download-retry-seconds", type=int, default=HRRR_DEFAULT_DOWNLOAD_RETRY_SECONDS, help="Seconds between HRRR download retries. Default: 20")
     p.add_argument("--hrrr-nomads-pause-seconds", type=float, default=HRRR_DEFAULT_NOMADS_PAUSE_SECONDS, help="Pause after successful NOMADS subset download. Default: 0.25")
     p.add_argument("--hrrr-cell-area-km2", type=float, default=HRRR_DEFAULT_CELL_AREA_KM2, help="Approximate HRRR grid-cell area used for connected object area. Default: 9 km^2")
+    p.add_argument("--run-rap-detector", action=argparse.BooleanOptionalAction, default=True, help="Require an independent RAP PyFLEXTRKR MCS classification. Default: true")
+    p.add_argument("--rap-cycle", default=RAP_DEFAULT_CYCLE, help="RAP initialization cycle for the gate. Default: 09")
+    p.add_argument("--rap-fhr-start", type=int, default=RAP_DEFAULT_FHR_START, help="First RAP forecast hour; 09Z f03 aligns with 12Z. Default: 3")
+    p.add_argument("--rap-fhr-end", type=int, default=RAP_DEFAULT_FHR_END, help="Last RAP forecast hour; 09Z f27 aligns with next-day 12Z. Default: 27")
+    p.add_argument("--rap-trigger-cache-dir", default=None, help="Directory for RAP gate GRIB/PyFLEXTRKR files. Default: CACHE_DIR/rap_mcs_trigger_inputs/DATE_09z")
+    p.add_argument("--force-rap-download", action="store_true", help="Redownload RAP gate subsets even when valid cached files exist.")
+    p.add_argument("--rap-cell-area-km2", type=float, default=RAP_DEFAULT_CELL_AREA_KM2, help="Approximate RAP 13-km grid-cell area. Default: 169 km^2")
     p.add_argument("--bt-threshold-operator", default="<", choices=["<", "<=", ">", ">="], help="Operator for HRRR SBT trigger. Default: <, i.e., SBT < 241 K")
     p.add_argument("--include-qpf-trigger", action="store_true", help="Deprecated compatibility flag. QPF is recorded diagnostically but cannot make a forecast MCS-eligible.")
     p.add_argument("--include-qpf-debug", action="store_true", help="Download HRRR APCP and save the QPF6 rainfall-only diagnostic; QPF never triggers publishing.")
@@ -3439,7 +3827,8 @@ def parse_args(argv=None):
     p.add_argument("--precipitation-threshold-dbz", type=float, default=MCS_PRECIPITATION_THRESHOLD_DBZ_DEFAULT, help="Composite reflectivity used to delineate precipitation features. Default: 25 dBZ")
     p.add_argument("--precipitation-major-axis-km", type=float, default=MCS_PRECIPITATION_MAJOR_AXIS_KM_DEFAULT, help="Precipitation-feature major axis must exceed this value. Default: 100 km")
     p.add_argument("--convective-threshold-dbz", type=float, default=MCS_CONVECTIVE_THRESHOLD_DBZ_DEFAULT, help="A precipitation feature must contain composite reflectivity above this value. Default: 45 dBZ")
-    p.add_argument("--trigger-audit-only", action="store_true", help="Run the HRRR lifecycle/QPF audit, write status and summary JSON, and skip all ML prediction/plotting.")
+    p.add_argument("--trigger-audit-only", action="store_true", help="Run the HRRR+RAP lifecycle audit, write status and summaries, and skip all ML prediction/plotting.")
+    p.add_argument("--rap-audit-only-existing-hrrr", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--force-trigger", action="store_true", help="Skip/override MCS detection and run ML plotting anyway.")
     p.add_argument("--overlay-mcs-contour-on-public-plot", action="store_true", help="Deprecated/no-op. Public ML/WPC plots never include internal generation-gate contours.")
 
@@ -3493,6 +3882,7 @@ def main(argv=None) -> int:
         "valid_period_label": valid_label,
         "trigger_cycle_label": args.cycle_label,
         "hrrr_trigger_cycle": f"{str(args.hrrr_cycle).zfill(2)}Z",
+        "rap_trigger_cycle": f"{str(args.rap_cycle).zfill(2)}Z",
         "started_utc": datetime.now(timezone.utc).isoformat(),
         "project_dir": str(rp.project_dir),
         "script_dir": str(rp.script_dir),
@@ -3503,6 +3893,47 @@ def main(argv=None) -> int:
         "error": None,
     }
     try:
+        if args.rap_audit_only_existing_hrrr:
+            hrrr_cycle = f"{int(args.hrrr_cycle):02d}"
+            hrrr_cache_dir = (
+                Path(args.hrrr_trigger_cache_dir).expanduser()
+                if args.hrrr_trigger_cache_dir
+                else rp.cache_dir / "hrrr_mcs_trigger_inputs" / f"{d}_{hrrr_cycle}z"
+            )
+            hrrr_summary_path = hrrr_cache_dir / f"hrrr_mcs_trigger_summary_{d}_{hrrr_cycle}z.json"
+            if not hrrr_summary_path.is_file():
+                raise RuntimeError(
+                    f"RAP-only audit requires an existing HRRR summary: {hrrr_summary_path}"
+                )
+            hrrr_summary = json.loads(hrrr_summary_path.read_text())
+            hrrr_triggered = bool(
+                hrrr_summary.get("hrrr_mcs_detected", hrrr_summary.get("mcs_detected"))
+            )
+            rap_summary = run_rap_mcs_detection(args, rp)
+            rap_triggered = bool(rap_summary.get("mcs_detected"))
+            hrrr_summary["hrrr_mcs_detected"] = hrrr_triggered
+            hrrr_summary["rap_mcs_detection"] = rap_summary
+            hrrr_summary["dual_model_gate"] = {
+                "required_models": ["HRRR", "RAP"],
+                "hrrr_triggered": hrrr_triggered,
+                "rap_triggered": rap_triggered,
+                "mcs_detected": bool(hrrr_triggered and rap_triggered),
+            }
+            hrrr_summary["mcs_detected"] = bool(hrrr_triggered and rap_triggered)
+            hrrr_summary_path.write_text(json.dumps(hrrr_summary, indent=2, default=str))
+            status["triggered"] = hrrr_summary["mcs_detected"]
+            status["mcs_eligible"] = hrrr_summary["mcs_detected"]
+            status["mcs_detection"] = {
+                "triggered": hrrr_summary["mcs_detected"],
+                "hrrr_triggered": hrrr_triggered,
+                "rap_triggered": rap_triggered,
+                "rap_ir_available": rap_summary.get("ir_available"),
+                "rap_ir_required": rap_summary.get("ir_required"),
+            }
+            status["finished_utc"] = datetime.now(timezone.utc).isoformat()
+            write_status(status_path, status)
+            return 0
+
         if args.verification_only:
             verified_path = verify_existing_realtime_predictions(
                 date=d,
@@ -3558,7 +3989,8 @@ def main(argv=None) -> int:
             return 0
         if not triggered:
             log(
-                f"No MCS trigger for {d}: total_objects={mcs_result.n_objects_total}, "
+                f"No dual-model MCS trigger for {d}: HRRR={mcs_result.hrrr_triggered}, "
+                f"RAP={mcs_result.rap_triggered}, total_HRRR_objects={mcs_result.n_objects_total}, "
                 f"passing={mcs_result.n_objects_passing}, largest_area={mcs_result.largest_area_km2:,.0f} km^2. Exiting without ML plot."
             )
             status["finished_utc"] = datetime.now(timezone.utc).isoformat()

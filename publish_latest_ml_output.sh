@@ -102,7 +102,7 @@ if internal_path and internal_path.is_file():
             else "Non-MCS-associated precipitation"
         ),
         "mcs_classification": {
-            "method": "Actual PyFLEXTRKR tb_pf_radar3d pipeline using HRRR SBT and REFC",
+            "method": "Dual-model actual PyFLEXTRKR gate requiring HRRR and RAP",
             "pyflextrkr_package_version": detection.get("pyflextrkr_package_version"),
             "pyflextrkr_upstream_commit": detection.get("pyflextrkr_upstream_commit"),
             "official_steps_completed": detection.get("pyflextrkr_official_steps_completed", []),
@@ -113,6 +113,12 @@ if internal_path and internal_path.is_file():
             "structural_duration_met": detection.get("structural_duration_met"),
             "max_ir_duration_hours": detection.get("max_ir_duration_hours"),
             "max_joint_duration_hours": detection.get("max_joint_duration_hours"),
+            "hrrr_criterion_met": detection.get("hrrr_triggered"),
+            "rap_criterion_met": detection.get("rap_triggered"),
+            "rap_ir_available": detection.get("rap_ir_available"),
+            "rap_ir_required": detection.get("rap_ir_required"),
+            "rap_cycle_and_hours": "09Z f03-f27 (valid 12Z-to-12Z)",
+            "model_results": detection.get("model_results", {}),
         },
     })
 with open(dst, "w") as f:
