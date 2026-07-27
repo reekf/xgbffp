@@ -31,7 +31,7 @@ Relevant dated commits include:
   maximum, and r100kmV2
 - running selected-risk case counts by ML/WPC product, with Moderate-or-greater
   defaults and no published Brier Skill Score
-- daily and pooled trailing-30-day/seasonal issued-forecast verification JSON
+- daily and pooled weekly/monthly/seasonal issued-forecast verification JSON
 - automated manifest/schema/unit validation and publisher integration
 - responsive/mobile dashboard and briefing layouts
 - a full Day-2 notebook viewer plus a resumable, bounded-memory builder for
@@ -51,15 +51,6 @@ Relevant dated commits include:
 - an ML-only continuous 2D probability display and dynamic 0–100% legend that
   retains WPC risk colors and fades probabilities above 70% into dark purple
 - updated optimized XGBFFP artwork for the header and browser/mobile icons
-- selectable running-verification references for both Practically Perfect and
-  UFVS flood proxies expanded 40 km, with separately labeled ETS, CSI, and
-  day-level contingency counts
-- removal of the seven-day view and weekly verification artifact
-- a tracked HRRR MCS lifecycle gate requiring a >40,000 km² cold cloud shield,
-  >100 km precipitation-feature major axis, and >45 dBZ composite simulated
-  reflectivity together for four consecutive hourly frames
-- a resumable 27-case 2026 HRRR lifecycle audit, realtime publication gate,
-  and gray/disabled archive treatment for future non-MCS precipitation cases
 
 ## Human scientific and product decisions
 

@@ -185,9 +185,8 @@ from model artifacts to the public website:
    refreshes the latest product, and maintains the date archive.
 4. `publish_verification_output.sh` adds the post-event Practically Perfect
    layer and verification graphics after the valid period.
-5. `generate_dashboard_data.py` rebuilds daily and pooled trailing-30-day and
-   seasonal issued-forecast verification for both Practically Perfect and UFVS
-   40-km references.
+5. `generate_dashboard_data.py` rebuilds daily and pooled weekly, monthly, and
+   seasonal issued-forecast verification.
 6. Git commits and GitHub Pages deployment make the updated forecast and
    verification available publicly.
 
@@ -196,35 +195,6 @@ archive/status rebuilding, resilient Git synchronization behavior, public-data
 sanitization, rolling-verification aggregation, selected-risk case counts, and
 live deployment checks. These checks reduce the chance that an incomplete or
 stale run is presented as the latest forecast.
-
-### July 27 lifecycle and dual-reference verification changes
-
-Codex also replaced the earlier single-hour IR/rainfall shortcut with a
-tracked HRRR object-lifecycle gate based on the human-selected modification of
-the Feng/PyFLEXTRKR MCS criteria. The implemented gate requires a connected
-SBT-below-241-K cloud shield strictly larger than 40,000 km², an embedded
-25-dBZ precipitation feature with major axis strictly longer than 100 km, and
-composite simulated reflectivity strictly above 45 dBZ within that feature.
-All conditions must persist together for four consecutive hourly frames,
-representing more than three hours under the project's operational convention.
-QPF is retained only as a rainfall-only diagnostic and cannot trigger forecast
-publication.
-
-Codex added resumable NOAA NOMADS/AWS HRRR input retrieval, normalized cached
-subsets and full archive grids to the same forecast-domain grid, wrote
-synthetic boundary tests for all structural thresholds, and audited all 27
-available 2026 website cases. Every audited case met the corrected full
-lifecycle, so none was falsely excluded; the archive still supports gray,
-disabled “Non-MCS-associated precipitation” entries when a future case fails.
-The realtime publisher now applies the same lifecycle before ML publication.
-
-Running Verification was expanded from a Practically-Perfect-only calculation
-to an explicit reference selector offering both the smoothed Practically
-Perfect field and observed UFVS flood proxies expanded 40 km. ETS, CSI, risk
-case counts, Hits, Misses, False Alarms, and Correct Negatives are calculated
-separately for each reference and labeled accordingly. The seven-day view and
-stale weekly JSON were removed, leaving only trailing 30 days and seasonal.
-MCS-ineligible dates are omitted from both reference datasets.
 
 After the Build Week submission entered its editing freeze, Codex created the
 separate `reekf/xgbffp` continuation repository and configured merge-based
