@@ -43,8 +43,9 @@ def summary_is_current(summary: dict, fhr_end: int) -> bool:
         and summary.get("pyflextrkr_package_version") == PYFLEXTRKR_PACKAGE_VERSION
         and summary.get("pyflextrkr_upstream_commit") == PYFLEXTRKR_UPSTREAM_COMMIT
         and steps_are_valid
-        and float(summary.get("ir_area_threshold_km2", -1)) == 40000.0
-        and int(summary.get("ir_duration_threshold_hours", -1)) == 4
+        and float(summary.get("ir_area_threshold_km2", -1)) == 60000.0
+        and int(summary.get("ir_duration_threshold_hours", -1)) == 6
+        and int(summary.get("structural_duration_threshold_hours", -1)) == 4
         and float(summary.get("precipitation_threshold_dbz", -1)) == 25.0
         and float(summary.get("precipitation_major_axis_threshold_km", -1)) == 100.0
         and float(summary.get("convective_threshold_dbz", -1)) == 45.0
@@ -181,9 +182,9 @@ def main() -> int:
                     "pyflextrkr_package_version": summary.get("pyflextrkr_package_version"),
                     "pyflextrkr_upstream_commit": summary.get("pyflextrkr_upstream_commit"),
                     "official_steps_completed": summary.get("pyflextrkr_official_steps_completed", []),
-                    "cloud_shield": "SBT < 241 K and area > 40000 km2 for > 3 continuous hours",
-                    "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for >3 continuous hours",
-                    "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for >3 continuous hours",
+                    "cloud_shield": "SBT < 241 K and area > 60000 km2 for at least 6 continuous hours",
+                    "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours",
+                    "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours",
                     "overlap_fraction": 0.5,
                     "ir_duration_met": result["ir_duration_met"],
                     "structural_duration_met": result["structural_duration_met"],
@@ -197,7 +198,7 @@ def main() -> int:
         write_json(status_path, status)
 
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "method": "Actual PyFLEXTRKR tb_pf_radar3d pipeline using HRRR SBT and REFC",
         "pyflextrkr_package_version": PYFLEXTRKR_PACKAGE_VERSION,
@@ -205,13 +206,14 @@ def main() -> int:
         "official_steps": OFFICIAL_STEPS,
         "criteria": {
             "cloud_shield_threshold_k": 241,
-            "cloud_shield_area_km2": 40000,
+            "cloud_shield_area_km2": 60000,
+            "cloud_shield_duration_hours": 6,
             "precipitation_feature_threshold_dbz": 25,
             "precipitation_feature_major_axis_km": 100,
             "convective_feature_threshold_dbz": 45,
             "reflectivity_representation": "HRRR REFC composite repeated on compatibility levels to represent reflectivity exceeding 45 dBZ at any vertical level; it is not a reconstructed vertical profile",
-            "duration_hours": 4,
-            "duration_definition": ">3 continuous hours represented by four hourly frames",
+            "structural_duration_hours": 4,
+            "duration_definition": "Cold-cloud shield requires at least six continuous hourly samples; precipitation and convective structure require at least four continuous hourly samples",
             "object_overlap_fraction": 0.5,
             "qpf6_rainfall_only_diagnostic_mm": 50.8,
         },

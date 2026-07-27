@@ -20,9 +20,9 @@ interpreter is installed somewhere other than the default user Conda path.
 ## Modified MCS criteria
 
 - HRRR simulated brightness temperature cold-cloud area is greater than
-  40,000 km2.
-- The cold-cloud condition is present for at least four continuous hourly
-  samples, representing more than three hours.
+  60,000 km2.
+- The cold-cloud condition is present for at least six continuous hourly
+  samples.
 - A collocated precipitation feature has a major-axis length greater than
   100 km for at least four continuous hourly samples.
 - The precipitation feature contains HRRR composite simulated reflectivity

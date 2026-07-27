@@ -62,7 +62,8 @@ def _case_signature(
     precipitation_threshold_dbz: float,
     precipitation_major_axis_threshold_km: float,
     convective_threshold_dbz: float,
-    duration_hours: int,
+    cloud_duration_hours: int,
+    structural_duration_hours: int,
     overlap_threshold: float,
     extent: tuple[float, float, float, float],
     cell_area_km2: float,
@@ -80,7 +81,8 @@ def _case_signature(
             precipitation_major_axis_threshold_km
         ),
         "convective_threshold_dbz": float(convective_threshold_dbz),
-        "duration_hours": int(duration_hours),
+        "cloud_duration_hours": int(cloud_duration_hours),
+        "structural_duration_hours": int(structural_duration_hours),
         "overlap_threshold": float(overlap_threshold),
         "extent": [float(value) for value in extent],
         "cell_area_km2": float(cell_area_km2),
@@ -199,7 +201,8 @@ def _config(
     precipitation_threshold_dbz: float,
     precipitation_major_axis_threshold_km: float,
     convective_threshold_dbz: float,
-    duration_hours: int,
+    cloud_duration_hours: int,
+    structural_duration_hours: int,
     overlap_threshold: float,
     cell_area_km2: float,
 ) -> dict:
@@ -286,15 +289,16 @@ def _config(
         "trackstats_dense_netcdf": 1,
         "match_pixel_dt_thresh": 60.0,
         "mcs_tb_area_thresh": float(cloud_area_threshold_km2),
-        "mcs_tb_duration_thresh": int(duration_hours),
+        "mcs_tb_duration_thresh": int(cloud_duration_hours),
         "mcs_tb_split_duration": 12,
         "mcs_tb_merge_duration": 12,
         "mcs_tb_gap": 1,
         "mcs_pf_majoraxis_thresh": float(precipitation_major_axis_threshold_km),
         "max_pf_majoraxis_thresh": 1800.0,
-        # robustmcs_radar uses a strict total-duration comparison. Setting 3
-        # therefore requires at least four hourly qualifying PF samples.
-        "mcs_pf_durationthresh": float(duration_hours - 1),
+        # robustmcs_radar first uses a strict total-duration comparison. A
+        # threshold one hour below the requested minimum therefore enforces
+        # at least that many continuous hourly PF/convective samples.
+        "mcs_pf_durationthresh": float(structural_duration_hours - 1),
         "mcs_pf_majoraxis_for_lifetime": 20.0,
         "mcs_pf_gap": 1,
         "pf_rr_thres": 2.0,
@@ -303,7 +307,7 @@ def _config(
         "nmaxpf": 5,
         "mcs_core_min_area": 0.0,
         "dbz_thresh": 10.0,
-        "mcs_lifecycle_thresh": int(duration_hours),
+        "mcs_lifecycle_thresh": int(cloud_duration_hours),
         "feature_varname": "feature_number",
         "nfeature_varname": "nfeatures",
         "featuresize_varname": "npix_feature",
@@ -339,11 +343,12 @@ def prepare_and_run_pyflextrkr(
     case_dir: Path,
     extent: tuple[float, float, float, float],
     bt_threshold_k: float = 241.0,
-    cloud_area_threshold_km2: float = 40000.0,
+    cloud_area_threshold_km2: float = 60000.0,
     precipitation_threshold_dbz: float = 25.0,
     precipitation_major_axis_threshold_km: float = 100.0,
     convective_threshold_dbz: float = 45.0,
-    duration_hours: int = 4,
+    cloud_duration_hours: int = 6,
+    structural_duration_hours: int = 4,
     overlap_threshold: float = 0.5,
     cell_area_km2: float = 9.0,
     pyflextrkr_python: Path = DEFAULT_PYFLEXTRKR_PYTHON,
@@ -382,14 +387,24 @@ def prepare_and_run_pyflextrkr(
         precipitation_threshold_dbz=precipitation_threshold_dbz,
         precipitation_major_axis_threshold_km=precipitation_major_axis_threshold_km,
         convective_threshold_dbz=convective_threshold_dbz,
-        duration_hours=duration_hours,
+        cloud_duration_hours=cloud_duration_hours,
+        structural_duration_hours=structural_duration_hours,
         overlap_threshold=overlap_threshold,
         extent=extent,
         cell_area_km2=cell_area_km2,
     )
     previous = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
     if force or previous.get("signature") != signature:
-        shutil.rmtree(input_dir, ignore_errors=True)
+        previous_signature = previous.get("signature", {})
+        input_keys = {
+            "run_date", "cycle", "forecast_hours", "grid_shape",
+            "precipitation_threshold_dbz", "reflectivity_representation",
+        }
+        input_is_compatible = bool(previous_signature) and all(
+            previous_signature.get(key) == signature.get(key) for key in input_keys
+        )
+        if force or not input_is_compatible:
+            shutil.rmtree(input_dir, ignore_errors=True)
         shutil.rmtree(output_dir, ignore_errors=True)
         result_path.unlink(missing_ok=True)
     input_dir.mkdir(parents=True, exist_ok=True)
@@ -431,7 +446,8 @@ def prepare_and_run_pyflextrkr(
         precipitation_threshold_dbz=precipitation_threshold_dbz,
         precipitation_major_axis_threshold_km=precipitation_major_axis_threshold_km,
         convective_threshold_dbz=convective_threshold_dbz,
-        duration_hours=duration_hours,
+        cloud_duration_hours=cloud_duration_hours,
+        structural_duration_hours=structural_duration_hours,
         overlap_threshold=overlap_threshold,
         cell_area_km2=cell_area_km2,
     )

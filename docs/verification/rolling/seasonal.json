@@ -5,7 +5,7 @@
   "definition": "JJA meteorological season to date",
   "end_date": "20260726",
   "expected_calendar_days": 56,
-  "generated_utc": "2026-07-27T21:30:29Z",
+  "generated_utc": "2026-07-27T22:35:15Z",
   "missing_day_count": 31,
   "products": {
     "ml_mean": {

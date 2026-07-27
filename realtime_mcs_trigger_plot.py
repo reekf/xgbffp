@@ -8,9 +8,9 @@ Core workflow:
   1) Download/read HRRR simulated brightness temperature and composite reflectivity
      for the requested cycle/fhr range. Track overlapping cold-cloud objects through
      time using the actual PyFLEXTRKR lifecycle pipeline. Default: 12Z HRRR, f00-f24,
-     SBT < 241 K, cold shield >4.0e4 km^2, embedded >=25 dBZ precipitation
+     SBT < 241 K, cold shield >6.0e4 km^2 for at least 6 hours, embedded >=25 dBZ precipitation
      feature with major axis >100 km and reflectivity >45 dBZ, with every
-     criterion lasting more than three consecutive hours.
+     precipitation/convective criterion lasting at least 4 consecutive hours.
   2) If the HRRR MCS trigger fires, build realtime features using the generated v33
      helper script used during training. The helper's GRIB validation is patched to
      avoid a pygrib/eccodes segfault observed on Python 3.14.
@@ -147,8 +147,9 @@ RISK_COLORS = {
 }
 
 MCS_BT_THRESHOLD_K_DEFAULT = 241.0
-MCS_MIN_AREA_KM2_DEFAULT = 4.0e4
-MCS_MIN_DURATION_HOURS_DEFAULT = 4
+MCS_MIN_AREA_KM2_DEFAULT = 6.0e4
+MCS_CLOUD_DURATION_HOURS_DEFAULT = 6
+MCS_STRUCTURAL_DURATION_HOURS_DEFAULT = 4
 MCS_TRACK_OVERLAP_THRESHOLD_DEFAULT = 0.5
 MCS_PRECIPITATION_THRESHOLD_DBZ_DEFAULT = 25.0
 MCS_PRECIPITATION_MAJOR_AXIS_KM_DEFAULT = 100.0
@@ -2749,7 +2750,9 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     mask_path = rp.outdir / (
         f"hrrr_mcs_mask_{d}_{cycle}z_bt{args.bt_threshold_operator}"
         f"{str(args.bt_threshold_k).replace('.','p')}_area{int(args.min_mcs_area_km2)}"
-        f"_duration{int(args.mcs_duration_hours)}h_pfaxis{int(args.precipitation_major_axis_km)}"
+        f"_cloud{int(args.mcs_cloud_duration_hours)}h"
+        f"_structure{int(args.mcs_structural_duration_hours)}h"
+        f"_pfaxis{int(args.precipitation_major_axis_km)}"
         f"_convective{int(args.convective_threshold_dbz)}.npz"
     )
 
@@ -2762,7 +2765,8 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         "ir_bt_threshold_k": float(args.bt_threshold_k),
         "ir_threshold_operator": str(args.bt_threshold_operator),
         "ir_area_threshold_km2": float(args.min_mcs_area_km2),
-        "ir_duration_threshold_hours": int(args.mcs_duration_hours),
+        "ir_duration_threshold_hours": int(args.mcs_cloud_duration_hours),
+        "structural_duration_threshold_hours": int(args.mcs_structural_duration_hours),
         "track_overlap_threshold": float(args.track_overlap_threshold),
         "precipitation_threshold_dbz": float(args.precipitation_threshold_dbz),
         "precipitation_major_axis_threshold_km": float(args.precipitation_major_axis_km),
@@ -2787,7 +2791,8 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         f">= {float(args.precipitation_threshold_dbz):.0f} dBZ PF major axis > "
         f"{float(args.precipitation_major_axis_km):.0f} km, "
         f"convective REFC > {float(args.convective_threshold_dbz):.0f} dBZ, "
-        f"duration > 3 h ({int(args.mcs_duration_hours)} hourly frames)"
+        f"cloud duration >= {int(args.mcs_cloud_duration_hours)} h, "
+        f"PF/convective duration >= {int(args.mcs_structural_duration_hours)} h"
     )
     log(f"Example HRRR SBT URL: {hrrr_nomads_url(d, cycle, fhr_start, ['SBT123', 'SBT124'], 'lev_top_of_atmosphere', extent=args.extent)}", verbose_only=True)
 
@@ -2904,7 +2909,8 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         precipitation_threshold_dbz=float(args.precipitation_threshold_dbz),
         precipitation_major_axis_threshold_km=float(args.precipitation_major_axis_km),
         convective_threshold_dbz=float(args.convective_threshold_dbz),
-        duration_hours=int(args.mcs_duration_hours),
+        cloud_duration_hours=int(args.mcs_cloud_duration_hours),
+        structural_duration_hours=int(args.mcs_structural_duration_hours),
         overlap_threshold=float(args.track_overlap_threshold),
         cell_area_km2=float(args.hrrr_cell_area_km2),
         force=bool(args.force_pyflextrkr or args.force_hrrr_download),
@@ -3426,8 +3432,9 @@ def parse_args(argv=None):
     p.add_argument("--lat-var", default=None, help="Latitude variable name in --ir-path.")
     p.add_argument("--lon-var", default=None, help="Longitude variable name in --ir-path.")
     p.add_argument("--bt-threshold-k", type=float, default=MCS_BT_THRESHOLD_K_DEFAULT, help="MCS cold cloud threshold. Default: BT < 241 K")
-    p.add_argument("--min-mcs-area-km2", type=float, default=MCS_MIN_AREA_KM2_DEFAULT, help="Tracked cold-cloud-shield area must exceed this value. Default: 40000 km^2")
-    p.add_argument("--mcs-duration-hours", type=int, default=MCS_MIN_DURATION_HOURS_DEFAULT, help="Consecutive hourly frames required for every structural criterion. Default: 4 frames (>3 hours)")
+    p.add_argument("--min-mcs-area-km2", type=float, default=MCS_MIN_AREA_KM2_DEFAULT, help="Tracked cold-cloud-shield area must exceed this value. Default: 60000 km^2")
+    p.add_argument("--mcs-cloud-duration-hours", type=int, default=MCS_CLOUD_DURATION_HOURS_DEFAULT, help="Minimum continuous cold-cloud-shield duration. Default: 6 hourly samples")
+    p.add_argument("--mcs-structural-duration-hours", type=int, default=MCS_STRUCTURAL_DURATION_HOURS_DEFAULT, help="Minimum continuous precipitation-feature and convective-feature duration. Default: 4 hourly samples")
     p.add_argument("--track-overlap-threshold", type=float, default=MCS_TRACK_OVERLAP_THRESHOLD_DEFAULT, help="Minimum consecutive-hour object overlap fraction. Default: 0.5")
     p.add_argument("--precipitation-threshold-dbz", type=float, default=MCS_PRECIPITATION_THRESHOLD_DBZ_DEFAULT, help="Composite reflectivity used to delineate precipitation features. Default: 25 dBZ")
     p.add_argument("--precipitation-major-axis-km", type=float, default=MCS_PRECIPITATION_MAJOR_AXIS_KM_DEFAULT, help="Precipitation-feature major axis must exceed this value. Default: 100 km")
