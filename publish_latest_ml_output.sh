@@ -102,7 +102,10 @@ if internal_path and internal_path.is_file():
             else "Non-MCS-associated precipitation"
         ),
         "mcs_classification": {
-            "method": "PyFLEXTRKR-style HRRR object overlap lifecycle",
+            "method": "Actual PyFLEXTRKR tb_pf_radar3d pipeline using HRRR SBT and REFC",
+            "pyflextrkr_package_version": detection.get("pyflextrkr_package_version"),
+            "pyflextrkr_upstream_commit": detection.get("pyflextrkr_upstream_commit"),
+            "official_steps_completed": detection.get("pyflextrkr_official_steps_completed", []),
             "cloud_shield": "SBT < 241 K and area >40000 km2 for >3 continuous hours",
             "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for >3 continuous hours",
             "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for >3 continuous hours",

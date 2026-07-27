@@ -7,7 +7,7 @@ Run from shell/cron/systemd. It does NOT require a notebook session.
 Core workflow:
   1) Download/read HRRR simulated brightness temperature and composite reflectivity
      for the requested cycle/fhr range. Track overlapping cold-cloud objects through
-     time using a PyFLEXTRKR-style lifecycle gate. Default: 12Z HRRR, f00-f24,
+     time using the actual PyFLEXTRKR lifecycle pipeline. Default: 12Z HRRR, f00-f24,
      SBT < 241 K, cold shield >4.0e4 km^2, embedded >=25 dBZ precipitation
      feature with major axis >100 km and reflectivity >45 dBZ, with every
      criterion lasting more than three consecutive hours.
@@ -76,7 +76,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from mcs_lifecycle import track_mcs_lifecycle
+from pyflextrkr_hrrr import prepare_and_run_pyflextrkr
 
 # Headless-safe plotting for automation.
 import matplotlib
@@ -2056,6 +2056,13 @@ class MCSDetectionResult:
     max_joint_duration_hours: int | None = None
     qpf6_trigger: bool | None = None
     qpf6_threshold_met: bool | None = None
+    mcs_method: str | None = None
+    pyflextrkr_package_version: str | None = None
+    pyflextrkr_upstream_commit: str | None = None
+    pyflextrkr_result_path: str | None = None
+    pyflextrkr_config_path: str | None = None
+    pyflextrkr_input_manifest_path: str | None = None
+    pyflextrkr_official_steps_completed: list[str] | None = None
     summary_path: str | None = None
     ir_debug_image: str | None = None
     qpf6_debug_image: str | None = None
@@ -2775,7 +2782,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     log("================================================================================")
     log(f"Date={d} HRRR cycle={cycle}Z fhr={fhr_start:02d}-{fhr_end:02d}")
     log(
-        f"Lifecycle trigger: SBT {args.bt_threshold_operator} {float(args.bt_threshold_k):.1f} K, "
+        f"Actual PyFLEXTRKR trigger: SBT {args.bt_threshold_operator} {float(args.bt_threshold_k):.1f} K, "
         f"cloud shield > {float(args.min_mcs_area_km2):.0f} km^2, "
         f">= {float(args.precipitation_threshold_dbz):.0f} dBZ PF major axis > "
         f"{float(args.precipitation_major_axis_km):.0f} km, "
@@ -2883,9 +2890,15 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         if best_ir is None or rec["max_ir_component_area_km2"] > best_ir["record"]["max_ir_component_area_km2"]:
             best_ir = {"fhr": fhr, "field": bt, "mask_all": mask_all, "component": comp, "record": rec}
 
-    lifecycle = track_mcs_lifecycle(
+    pyflex = prepare_and_run_pyflextrkr(
         ir_by_fhr,
         reflectivity_by_fhr,
+        lat,
+        lon,
+        run_date=d,
+        cycle=cycle,
+        case_dir=cache_dir,
+        extent=tuple(args.extent),
         bt_threshold_k=float(args.bt_threshold_k),
         cloud_area_threshold_km2=float(args.min_mcs_area_km2),
         precipitation_threshold_dbz=float(args.precipitation_threshold_dbz),
@@ -2894,14 +2907,32 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         duration_hours=int(args.mcs_duration_hours),
         overlap_threshold=float(args.track_overlap_threshold),
         cell_area_km2=float(args.hrrr_cell_area_km2),
+        force=bool(args.force_pyflextrkr or args.force_hrrr_download),
     )
-    summary["reflectivity_records"] = lifecycle.hourly_records
-    summary["best_lifecycle_track"] = lifecycle.best_track
-    summary["max_ir_duration_hours"] = int(lifecycle.max_ir_duration_hours)
-    summary["max_joint_duration_hours"] = int(lifecycle.max_joint_duration_hours)
-    summary["ir_duration_met"] = bool(lifecycle.ir_duration_met)
-    summary["structural_duration_met"] = bool(lifecycle.structural_duration_met)
-    ir_trigger = bool(lifecycle.ir_duration_met)
+    summary["reflectivity_records"] = [
+        {
+            "fhr": int(fhr),
+            "valid_utc": hrrr_valid_time_utc(d, cycle, fhr).isoformat(),
+            "reflectivity_field": reflectivity_name_by_fhr.get(fhr),
+            "max_reflectivity_dbz": float(np.nanmax(reflectivity_by_fhr[fhr])),
+            "pyflextrkr_input_available": True,
+        }
+        for fhr in sorted(reflectivity_by_fhr)
+    ]
+    summary["mcs_method"] = "actual_pyflextrkr"
+    summary["pyflextrkr_package_version"] = pyflex.package_version
+    summary["pyflextrkr_result_path"] = pyflex.result_path
+    summary["pyflextrkr_config_path"] = pyflex.config_path
+    summary["pyflextrkr_input_manifest_path"] = pyflex.input_manifest_path
+    summary["pyflextrkr_robust_stats_path"] = pyflex.robust_stats_path
+    summary["pyflextrkr_official_steps_completed"] = pyflex.official_steps_completed
+    summary["pyflextrkr_upstream_commit"] = pyflex.upstream_commit
+    summary["selected_fhr"] = pyflex.selected_fhr
+    summary["max_ir_duration_hours"] = int(pyflex.max_ir_duration_hours)
+    summary["max_joint_duration_hours"] = int(pyflex.max_joint_duration_hours)
+    summary["ir_duration_met"] = bool(pyflex.ir_duration_met)
+    summary["structural_duration_met"] = bool(pyflex.structural_duration_met)
+    ir_trigger = bool(pyflex.ir_duration_met)
 
     # Optional HRRR 6-h QPF trigger/diagnostic. This is off by default so the MCS trigger is the SBT object.
     qpf_trigger = False
@@ -2958,9 +2989,13 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
 
     selected_mask = np.zeros_like(best_ir["mask_all"], dtype=bool)
     selected_obj = None
-    selected_fhr = lifecycle.selected_fhr
-    if lifecycle.selected_mask is not None and selected_fhr in ir_by_fhr:
-        selected_mask = lifecycle.selected_mask
+    selected_fhr = pyflex.selected_fhr
+    if selected_fhr in ir_by_fhr:
+        # This mask is a plotting aid only. The eligibility decision above is
+        # made exclusively by the official PyFLEXTRKR robust-MCS output.
+        selected_mask = threshold_mask(
+            ir_by_fhr[selected_fhr], args.bt_threshold_k, args.bt_threshold_operator
+        )
         selected_obj = mcs_object_from_label(
             1,
             selected_mask.astype(np.int32),
@@ -2973,7 +3008,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
 
     # QPF is diagnostic only. A forecast is eligible only when the tracked IR
     # shield and collocated simulated-reflectivity lifecycle both qualify.
-    triggered = bool(lifecycle.detected)
+    triggered = bool(pyflex.detected)
     summary["ir_trigger"] = bool(ir_trigger)
     summary["qpf6_trigger"] = bool(qpf_trigger)
     summary["qpf6_threshold_met"] = bool(qpf_threshold_met)
@@ -2998,7 +3033,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
             title=(
                 f"HRRR simulated IR lifecycle | {d} {cycle}Z f{debug_fhr:02d} | valid {valid_str}\n"
                 f"SBT {args.bt_threshold_operator} {float(args.bt_threshold_k):.0f} K | "
-                f"max tracked duration = {lifecycle.max_ir_duration_hours} h"
+                f"PyFLEXTRKR duration = {pyflex.max_ir_duration_hours} h"
             ),
             cbar_label="Brightness temperature (K)",
             cmap="gray_r",
@@ -3026,7 +3061,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
             title=(
                 f"HRRR simulated reflectivity lifecycle | {d} {cycle}Z f{debug_fhr:02d} | valid {valid_str}\n"
                 f"REFC > {float(args.convective_threshold_dbz):.0f} dBZ | "
-                f"joint duration = {lifecycle.max_joint_duration_hours} h"
+                f"PyFLEXTRKR robust duration = {pyflex.max_joint_duration_hours} h"
             ),
             cbar_label="Composite reflectivity (dBZ)",
             cmap="turbo",
@@ -3065,7 +3100,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     log(f"Saved HRRR trigger summary JSON: {summary_path}")
     write_mcs_mask_npz(mask_path, selected_mask, lat, lon, best_ir["field"], {"summary": summary})
 
-    n_passing = int(sum(1 for r in lifecycle.hourly_records if r["qualifying_cloud_count"] > 0))
+    n_passing = int(pyflex.max_joint_duration_hours)
     res = MCSDetectionResult(
         triggered=triggered,
         threshold_k=float(args.bt_threshold_k),
@@ -3075,7 +3110,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         largest_area_km2=float(best_ir["record"].get("max_ir_component_area_km2", 0.0)) if best_ir else 0.0,
         selected=selected_obj,
         mask_path=str(mask_path),
-        source="HRRR simulated IR SBT123/SBT124",
+        source="Actual PyFLEXTRKR using HRRR SBT and REFC",
         hrrr_cycle=cycle,
         selected_fhr=int(selected_fhr) if selected_fhr is not None else None,
         selected_valid_utc=(
@@ -3084,22 +3119,30 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
             else None
         ),
         ir_trigger=bool(ir_trigger),
-        ir_duration_met=bool(lifecycle.ir_duration_met),
-        structural_duration_met=bool(lifecycle.structural_duration_met),
-        max_ir_duration_hours=int(lifecycle.max_ir_duration_hours),
-        max_joint_duration_hours=int(lifecycle.max_joint_duration_hours),
+        ir_duration_met=bool(pyflex.ir_duration_met),
+        structural_duration_met=bool(pyflex.structural_duration_met),
+        max_ir_duration_hours=int(pyflex.max_ir_duration_hours),
+        max_joint_duration_hours=int(pyflex.max_joint_duration_hours),
         qpf6_trigger=bool(qpf_trigger),
         qpf6_threshold_met=bool(qpf_threshold_met),
+        mcs_method="actual_pyflextrkr",
+        pyflextrkr_package_version=pyflex.package_version,
+        pyflextrkr_upstream_commit=pyflex.upstream_commit,
+        pyflextrkr_result_path=pyflex.result_path,
+        pyflextrkr_config_path=pyflex.config_path,
+        pyflextrkr_input_manifest_path=pyflex.input_manifest_path,
+        pyflextrkr_official_steps_completed=pyflex.official_steps_completed,
         summary_path=str(summary_path),
         ir_debug_image=str(ir_debug) if ir_debug else None,
         qpf6_debug_image=str(qpf_debug) if qpf_debug else None,
     )
     log(
-        f"HRRR lifecycle result: ir_duration_met={lifecycle.ir_duration_met} "
-        f"structural_duration_met={lifecycle.structural_duration_met} "
+        f"Actual PyFLEXTRKR result (v{pyflex.package_version}): "
+        f"ir_duration_met={pyflex.ir_duration_met} "
+        f"structural_duration_met={pyflex.structural_duration_met} "
         f"qpf6_threshold_met={qpf_threshold_met} triggered={triggered} "
-        f"max_ir_duration={lifecycle.max_ir_duration_hours}h "
-        f"max_joint_duration={lifecycle.max_joint_duration_hours}h"
+        f"max_ir_duration={pyflex.max_ir_duration_hours}h "
+        f"max_joint_duration={pyflex.max_joint_duration_hours}h"
     )
     return res, selected_mask, lat, lon, ir_by_fhr.get(debug_fhr)
 
@@ -3123,8 +3166,11 @@ def get_mcs_detection(args, rp: RuntimePaths):
             )
         res = MCSDetectionResult(
             triggered=bool(
-                lifecycle_summary.get("mcs_detected", args.force_trigger)
-                or (not lifecycle_summary and area > args.min_mcs_area_km2)
+                (
+                    lifecycle_summary.get("mcs_method") == "actual_pyflextrkr"
+                    and lifecycle_summary.get("mcs_detected") is True
+                )
+                or args.force_trigger
             ),
             threshold_k=float(args.bt_threshold_k),
             min_area_km2=float(args.min_mcs_area_km2),
@@ -3133,9 +3179,12 @@ def get_mcs_detection(args, rp: RuntimePaths):
             largest_area_km2=area,
             selected=obj,
             mask_path=str(args.mcs_mask_path),
-            source="saved HRRR lifecycle mask",
+            source="saved PyFLEXTRKR-qualified HRRR mask",
             hrrr_cycle=lifecycle_summary.get("hrrr_cycle"),
-            selected_fhr=lifecycle_summary.get("best_lifecycle_track", {}).get("fhr"),
+            selected_fhr=lifecycle_summary.get(
+                "selected_fhr",
+                lifecycle_summary.get("best_lifecycle_track", {}).get("fhr"),
+            ),
             ir_trigger=lifecycle_summary.get("ir_trigger"),
             ir_duration_met=lifecycle_summary.get("ir_duration_met"),
             structural_duration_met=lifecycle_summary.get("structural_duration_met"),
@@ -3143,6 +3192,13 @@ def get_mcs_detection(args, rp: RuntimePaths):
             max_joint_duration_hours=lifecycle_summary.get("max_joint_duration_hours"),
             qpf6_trigger=lifecycle_summary.get("qpf6_trigger"),
             qpf6_threshold_met=lifecycle_summary.get("qpf6_threshold_met"),
+            mcs_method=lifecycle_summary.get("mcs_method"),
+            pyflextrkr_package_version=lifecycle_summary.get("pyflextrkr_package_version"),
+            pyflextrkr_upstream_commit=lifecycle_summary.get("pyflextrkr_upstream_commit"),
+            pyflextrkr_result_path=lifecycle_summary.get("pyflextrkr_result_path"),
+            pyflextrkr_config_path=lifecycle_summary.get("pyflextrkr_config_path"),
+            pyflextrkr_input_manifest_path=lifecycle_summary.get("pyflextrkr_input_manifest_path"),
+            pyflextrkr_official_steps_completed=lifecycle_summary.get("pyflextrkr_official_steps_completed"),
         )
         return res, mask, lat, lon, bt
     if args.force_trigger and not args.ir_path and not args.run_hrrr_detector:
@@ -3353,6 +3409,7 @@ def parse_args(argv=None):
     p.add_argument("--ir-path", default=None, help="Optional local HRRR SBT GRIB2/NPZ file for single-file trigger testing. If omitted, HRRR SBT subsets are downloaded from NOMADS.")
     p.add_argument("--hrrr-trigger-cache-dir", default=None, help="Directory for HRRR trigger GRIB/debug files. Default: CACHE_DIR/hrrr_mcs_trigger_inputs/DATE_CYCLEz")
     p.add_argument("--force-hrrr-download", action="store_true", help="Redownload HRRR trigger subset files even if valid cached GRIB files exist.")
+    p.add_argument("--force-pyflextrkr", action="store_true", help="Rebuild prepared PyFLEXTRKR inputs and rerun every official package stage.")
     p.add_argument("--hrrr-download-timeout", type=int, default=HRRR_DEFAULT_DOWNLOAD_TIMEOUT_SECONDS, help="Timeout seconds for each HRRR NOMADS request. Default: 180")
     p.add_argument("--hrrr-max-download-attempts", type=int, default=HRRR_DEFAULT_MAX_DOWNLOAD_ATTEMPTS, help="Max attempts per HRRR subset. Default: 4")
     p.add_argument("--hrrr-download-retry-seconds", type=int, default=HRRR_DEFAULT_DOWNLOAD_RETRY_SECONDS, help="Seconds between HRRR download retries. Default: 20")
@@ -3503,7 +3560,7 @@ def main(argv=None) -> int:
 
         # ecCodes/pygrib can crash when RAP files are opened after the detector's
         # GRIB files in the same interpreter. Re-exec the ML stage in a clean
-        # process, carrying only the saved mask and the positive gate decision.
+        # process, carrying the saved mask and its actual PyFLEXTRKR provenance.
         if args.run_hrrr_detector and os.environ.get("REALTIME_ML_STAGE_CHILD") != "1":
             child_args = []
             skip_next = False
@@ -3517,7 +3574,7 @@ def main(argv=None) -> int:
                 if token in {"--run-hrrr-detector", "--no-run-hrrr-detector", "--force-trigger"}:
                     continue
                 child_args.append(token)
-            child_args.extend(["--no-run-hrrr-detector", "--force-trigger"])
+            child_args.append("--no-run-hrrr-detector")
             if mcs_result.mask_path:
                 child_args.extend(["--mcs-mask-path", str(mcs_result.mask_path)])
             env = os.environ.copy()

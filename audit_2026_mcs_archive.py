@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import subprocess
 import sys
@@ -14,6 +15,17 @@ from pathlib import Path
 REPO_DIR = Path(__file__).resolve().parent
 DEFAULT_DOCS_DIR = REPO_DIR / "docs"
 DEFAULT_PROJECT_DIR = REPO_DIR.parents[1] / "fall_2025_ml_proj"
+PYFLEXTRKR_PACKAGE_VERSION = "2026.7.0"
+PYFLEXTRKR_UPSTREAM_COMMIT = "6a3a6435ee6b3a64ec411b9f2af38226d6f32850"
+OFFICIAL_STEPS = [
+    "idfeature_driver",
+    "tracksingle_driver",
+    "gettracknumbers",
+    "trackstats_driver",
+    "identifymcs_tb",
+    "match_tbpf_tracks",
+    "define_robust_mcs_radar",
+]
 
 
 def write_json(path: Path, payload: object) -> None:
@@ -22,8 +34,16 @@ def write_json(path: Path, payload: object) -> None:
 
 
 def summary_is_current(summary: dict, fhr_end: int) -> bool:
+    completed = summary.get("pyflextrkr_official_steps_completed", [])
+    steps_are_valid = bool(completed) and completed == OFFICIAL_STEPS[: len(completed)]
+    if bool(summary.get("mcs_detected")):
+        steps_are_valid = completed == OFFICIAL_STEPS
     return (
-        float(summary.get("ir_area_threshold_km2", -1)) == 40000.0
+        summary.get("mcs_method") == "actual_pyflextrkr"
+        and summary.get("pyflextrkr_package_version") == PYFLEXTRKR_PACKAGE_VERSION
+        and summary.get("pyflextrkr_upstream_commit") == PYFLEXTRKR_UPSTREAM_COMMIT
+        and steps_are_valid
+        and float(summary.get("ir_area_threshold_km2", -1)) == 40000.0
         and int(summary.get("ir_duration_threshold_hours", -1)) == 4
         and float(summary.get("precipitation_threshold_dbz", -1)) == 25.0
         and float(summary.get("precipitation_major_axis_threshold_km", -1)) == 100.0
@@ -64,12 +84,53 @@ def classification_from_summary(day: str, summary: dict) -> dict:
     }
 
 
+def audit_case(day: str, args, cache_root: Path, audit_status_dir: Path) -> tuple[str, dict, bool]:
+    case_dir = cache_root / f"{day}_12z"
+    summary_path = case_dir / f"hrrr_mcs_trigger_summary_{day}_12z.json"
+    summary = json.loads(summary_path.read_text()) if summary_path.is_file() else {}
+    if not args.force and summary_is_current(summary, args.fhr_end):
+        return day, summary, True
+
+    status_path = audit_status_dir / f"status_{day}.json"
+    command = [
+        sys.executable,
+        str(REPO_DIR / "realtime_mcs_trigger_plot.py"),
+        "--date", day,
+        "--project-dir", str(args.project_dir),
+        "--fhr-end", str(args.fhr_end),
+        "--trigger-audit-only",
+        "--include-qpf-debug",
+        "--no-save-hrrr-debug-plots",
+        "--status-json", str(status_path),
+    ]
+    if args.force:
+        command.append("--force-pyflextrkr")
+    completed = subprocess.run(
+        command,
+        cwd=REPO_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    log_dir = cache_root / "archive_audit_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / f"pyflextrkr_{day}.log").write_text(completed.stdout or "")
+    if completed.returncode != 0:
+        tail = "\n".join((completed.stdout or "").splitlines()[-80:])
+        raise RuntimeError(f"PyFLEXTRKR archive audit failed for {day}:\n{tail}")
+    summary = json.loads(summary_path.read_text())
+    if not summary_is_current(summary, args.fhr_end):
+        raise RuntimeError(f"PyFLEXTRKR audit for {day} did not write a current summary")
+    return day, summary, False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--docs-dir", type=Path, default=DEFAULT_DOCS_DIR)
     parser.add_argument("--project-dir", type=Path, default=DEFAULT_PROJECT_DIR)
     parser.add_argument("--dates", nargs="*", help="Optional YYYYMMDD subset")
     parser.add_argument("--fhr-end", type=int, default=24)
+    parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
@@ -89,33 +150,23 @@ def main() -> int:
         / "hrrr_mcs_trigger_inputs"
     )
     audit_status_dir = cache_root / "archive_audit_status"
+    if args.workers < 1:
+        parser.error("--workers must be at least 1")
+    summaries = {}
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = {
+            executor.submit(audit_case, day, args, cache_root, audit_status_dir): day
+            for day in dates
+        }
+        for number, future in enumerate(as_completed(futures), start=1):
+            day, summary, reused = future.result()
+            summaries[day] = summary
+            action = "Reused" if reused else "Completed"
+            print(f"[{number}/{len(dates)}] {action} actual PyFLEXTRKR audit for {day}", flush=True)
+
     results = []
-    for number, day in enumerate(dates, start=1):
-        case_dir = cache_root / f"{day}_12z"
-        summary_path = case_dir / f"hrrr_mcs_trigger_summary_{day}_12z.json"
-        summary = json.loads(summary_path.read_text()) if summary_path.is_file() else {}
-        if args.force or not summary_is_current(summary, args.fhr_end):
-            print(f"[{number}/{len(dates)}] Auditing {day}", flush=True)
-            status_path = audit_status_dir / f"status_{day}.json"
-            command = [
-                sys.executable,
-                str(REPO_DIR / "realtime_mcs_trigger_plot.py"),
-                "--date",
-                day,
-                "--project-dir",
-                str(args.project_dir),
-                "--fhr-end",
-                str(args.fhr_end),
-                "--trigger-audit-only",
-                "--include-qpf-debug",
-                "--no-save-hrrr-debug-plots",
-                "--status-json",
-                str(status_path),
-            ]
-            subprocess.run(command, cwd=REPO_DIR, check=True)
-            summary = json.loads(summary_path.read_text())
-        else:
-            print(f"[{number}/{len(dates)}] Reusing current audit for {day}", flush=True)
+    for day in dates:
+        summary = summaries[day]
         result = classification_from_summary(day, summary)
         results.append(result)
 
@@ -126,7 +177,10 @@ def main() -> int:
                 "mcs_eligible": result["mcs_eligible"],
                 "mcs_classification_label": result["label"],
                 "mcs_classification": {
-                    "method": "PyFLEXTRKR-style HRRR object overlap lifecycle",
+                    "method": "Actual PyFLEXTRKR tb_pf_radar3d pipeline using HRRR SBT and REFC",
+                    "pyflextrkr_package_version": summary.get("pyflextrkr_package_version"),
+                    "pyflextrkr_upstream_commit": summary.get("pyflextrkr_upstream_commit"),
+                    "official_steps_completed": summary.get("pyflextrkr_official_steps_completed", []),
                     "cloud_shield": "SBT < 241 K and area > 40000 km2 for > 3 continuous hours",
                     "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for >3 continuous hours",
                     "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for >3 continuous hours",
@@ -145,13 +199,17 @@ def main() -> int:
     manifest = {
         "schema_version": 1,
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "method": "PyFLEXTRKR-style HRRR IR plus composite-reflectivity lifecycle audit",
+        "method": "Actual PyFLEXTRKR tb_pf_radar3d pipeline using HRRR SBT and REFC",
+        "pyflextrkr_package_version": PYFLEXTRKR_PACKAGE_VERSION,
+        "pyflextrkr_upstream_commit": PYFLEXTRKR_UPSTREAM_COMMIT,
+        "official_steps": OFFICIAL_STEPS,
         "criteria": {
             "cloud_shield_threshold_k": 241,
             "cloud_shield_area_km2": 40000,
             "precipitation_feature_threshold_dbz": 25,
             "precipitation_feature_major_axis_km": 100,
             "convective_feature_threshold_dbz": 45,
+            "reflectivity_representation": "HRRR REFC composite repeated on compatibility levels to represent reflectivity exceeding 45 dBZ at any vertical level; it is not a reconstructed vertical profile",
             "duration_hours": 4,
             "duration_definition": ">3 continuous hours represented by four hourly frames",
             "object_overlap_fraction": 0.5,

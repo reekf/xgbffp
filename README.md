@@ -71,6 +71,12 @@ local storm reports, RainViewer radar, mPING flood-impact reports when a
 publisher token is configured, and the UFVS proxy collections included by the
 verification publisher.
 
+Realtime and archived MCS eligibility is determined by the actual upstream
+PyFLEXTRKR package using HRRR simulated brightness temperature and composite
+reflectivity. The modified thresholds, HRRR-to-PyFLEXTRKR input contract,
+official pipeline stages, provenance fields, and reproducible environment are
+documented in [`docs/PYFLEXTRKR_HRRR.md`](docs/PYFLEXTRKR_HRRR.md).
+
 ## Reproducible dashboard publishing
 
 `generate_dashboard_data.py`:
