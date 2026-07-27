@@ -5,9 +5,12 @@ Standalone realtime ML probability plotter with an internal generation gate. Che
 Run from shell/cron/systemd. It does NOT require a notebook session.
 
 Core workflow:
-  1) Download/read HRRR simulated brightness temperature from NOMADS
-     (SBT123/SBT124, top of atmosphere) for the requested cycle/fhr range.
-     Default: 12Z HRRR, f00-f24, SBT < 241 K, largest object >= 6.0e4 km^2.
+  1) Download/read HRRR simulated brightness temperature and composite reflectivity
+     for the requested cycle/fhr range. Track overlapping cold-cloud objects through
+     time using a PyFLEXTRKR-style lifecycle gate. Default: 12Z HRRR, f00-f24,
+     SBT < 241 K, cold shield >4.0e4 km^2, embedded >=25 dBZ precipitation
+     feature with major axis >100 km and reflectivity >45 dBZ, with every
+     criterion lasting more than three consecutive hours.
   2) If the HRRR MCS trigger fires, build realtime features using the generated v33
      helper script used during training. The helper's GRIB validation is patched to
      avoid a pygrib/eccodes segfault observed on Python 3.14.
@@ -72,6 +75,8 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
+
+from mcs_lifecycle import track_mcs_lifecycle
 
 # Headless-safe plotting for automation.
 import matplotlib
@@ -142,7 +147,12 @@ RISK_COLORS = {
 }
 
 MCS_BT_THRESHOLD_K_DEFAULT = 241.0
-MCS_MIN_AREA_KM2_DEFAULT = 6.0e4
+MCS_MIN_AREA_KM2_DEFAULT = 4.0e4
+MCS_MIN_DURATION_HOURS_DEFAULT = 4
+MCS_TRACK_OVERLAP_THRESHOLD_DEFAULT = 0.5
+MCS_PRECIPITATION_THRESHOLD_DBZ_DEFAULT = 25.0
+MCS_PRECIPITATION_MAJOR_AXIS_KM_DEFAULT = 100.0
+MCS_CONVECTIVE_THRESHOLD_DBZ_DEFAULT = 45.0
 
 UFVS_BASE_URL = "https://ftp-wpc.ncep.noaa.gov/erickson/FFaIR/UFVS"
 UFVS_PREFIX_TO_COL = {
@@ -2040,13 +2050,19 @@ class MCSDetectionResult:
     selected_fhr: int | None = None
     selected_valid_utc: str | None = None
     ir_trigger: bool | None = None
+    ir_duration_met: bool | None = None
+    structural_duration_met: bool | None = None
+    max_ir_duration_hours: int | None = None
+    max_joint_duration_hours: int | None = None
     qpf6_trigger: bool | None = None
+    qpf6_threshold_met: bool | None = None
     summary_path: str | None = None
     ir_debug_image: str | None = None
     qpf6_debug_image: str | None = None
 
 
 HRRR_NOMADS_BASE = "https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl"
+HRRR_AWS_BASE = "https://noaa-hrrr-bdp-pds.s3.amazonaws.com"
 HRRR_DEFAULT_CYCLE = "12"
 HRRR_DEFAULT_FHR_START = 0
 HRRR_DEFAULT_FHR_END = 24
@@ -2093,6 +2109,162 @@ def hrrr_nomads_url(run_date: str, cycle: str, fhr: int, var_names, level_name: 
     return HRRR_NOMADS_BASE + "?" + urllib.parse.urlencode(params)
 
 
+def hrrr_aws_url(run_date: str, cycle: str, fhr: int) -> str:
+    return (
+        f"{HRRR_AWS_BASE}/hrrr.{date8(run_date)}/conus/"
+        f"{hrrr_filename(cycle, fhr)}"
+    )
+
+
+def selected_hrrr_source(run_date: str, requested: str) -> str:
+    if requested != "auto":
+        return requested
+    run_day = datetime.strptime(date8(run_date), "%Y%m%d").date()
+    age_days = (datetime.now(timezone.utc).date() - run_day).days
+    return "nomads" if age_days <= 2 else "aws"
+
+
+def is_complete_grib_file(path: str | Path) -> bool:
+    """Accept complete GRIB messages, including the tiny all-zero APCP f00 record."""
+    path = Path(path)
+    if not path.is_file() or path.stat().st_size < 20:
+        return False
+    with path.open("rb") as handle:
+        if handle.read(4) != b"GRIB":
+            return False
+        handle.seek(-4, 2)
+        return handle.read(4) == b"7777"
+
+
+def download_aws_grib_records(
+    session,
+    run_date: str,
+    cycle: str,
+    fhr: int,
+    selections: list[tuple[str, str]],
+    out_path: str | Path,
+    *,
+    timeout: int,
+    overwrite: bool = False,
+) -> Path:
+    """Download selected HRRR GRIB records with byte ranges from NOAA's archive."""
+    out_path = Path(out_path).expanduser()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if not overwrite and is_complete_grib_file(out_path):
+        return out_path
+    data_url = hrrr_aws_url(run_date, cycle, fhr)
+    idx_url = data_url + ".idx"
+    cache = getattr(session, "_xgbffp_hrrr_idx_cache", {})
+    if idx_url not in cache:
+        response = session.get(idx_url, timeout=int(timeout))
+        response.raise_for_status()
+        cache[idx_url] = response.text
+        session._xgbffp_hrrr_idx_cache = cache
+    entries = []
+    for line in cache[idx_url].splitlines():
+        parts = line.split(":")
+        if len(parts) < 5:
+            continue
+        try:
+            entries.append({"start": int(parts[1]), "variable": parts[3], "level": parts[4], "line": line})
+        except ValueError:
+            continue
+    if not entries:
+        raise RuntimeError(f"No parsable HRRR index entries: {idx_url}")
+    selected_entries = []
+    for variable, level_text in selections:
+        match = next(
+            (
+                entry
+                for entry in entries
+                if entry["variable"].upper() == variable.upper()
+                and level_text.lower() in entry["level"].lower()
+            ),
+            None,
+        )
+        if match is None:
+            raise RuntimeError(f"{variable}:{level_text} is absent from {idx_url}")
+        selected_entries.append(match)
+    content_length = None
+    chunks = []
+    for selected in selected_entries:
+        index = entries.index(selected)
+        if index + 1 < len(entries):
+            end = int(entries[index + 1]["start"]) - 1
+        else:
+            if content_length is None:
+                head = session.head(data_url, timeout=int(timeout))
+                head.raise_for_status()
+                content_length = int(head.headers["content-length"])
+            end = content_length - 1
+        response = session.get(
+            data_url,
+            headers={"Range": f"bytes={selected['start']}-{end}"},
+            timeout=int(timeout),
+        )
+        if response.status_code not in (200, 206):
+            raise RuntimeError(
+                f"NOAA HRRR archive returned {response.status_code} for {selected['line']}"
+            )
+        chunk = response.content
+        if response.status_code == 200 and len(chunk) > end - int(selected["start"]) + 1:
+            chunk = chunk[int(selected["start"]):end + 1]
+        if chunk[:4] != b"GRIB":
+            raise RuntimeError(f"Archive byte range does not begin with GRIB: {selected['line']}")
+        chunks.append(chunk)
+    part_path = out_path.with_suffix(out_path.suffix + ".part")
+    with part_path.open("wb") as handle:
+        for chunk in chunks:
+            handle.write(chunk)
+    part_path.replace(out_path)
+    return out_path
+
+
+def download_hrrr_field_subset(
+    session,
+    run_date: str,
+    cycle: str,
+    fhr: int,
+    out_path: str | Path,
+    *,
+    nomads_variables: list[str],
+    nomads_level: str,
+    archive_selections: list[tuple[str, str]],
+    args,
+) -> tuple[Path, str]:
+    source = selected_hrrr_source(run_date, args.hrrr_data_source)
+    nomads_url = hrrr_nomads_url(
+        run_date, cycle, fhr, nomads_variables, nomads_level, extent=args.extent
+    )
+    if source == "nomads":
+        try:
+            return download_nomads_subset(
+                session,
+                nomads_url,
+                out_path,
+                timeout=args.hrrr_download_timeout,
+                max_attempts=args.hrrr_max_download_attempts,
+                retry_seconds=args.hrrr_download_retry_seconds,
+                pause_seconds=args.hrrr_nomads_pause_seconds,
+                overwrite=args.force_hrrr_download,
+            ), nomads_url
+        except Exception:
+            if args.hrrr_data_source != "auto":
+                raise
+            log(f"NOMADS unavailable for {date8(run_date)} f{fhr:02d}; trying NOAA AWS archive.")
+    path = download_aws_grib_records(
+        session,
+        run_date,
+        cycle,
+        fhr,
+        archive_selections,
+        out_path,
+        timeout=args.hrrr_download_timeout,
+        overwrite=args.force_hrrr_download,
+    )
+    return path, hrrr_aws_url(run_date, cycle, fhr)
+
+
 def download_nomads_subset(
     session,
     url: str,
@@ -2105,12 +2277,9 @@ def download_nomads_subset(
 ) -> Path:
     out_path = Path(out_path).expanduser()
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    if out_path.exists() and out_path.stat().st_size > 1000 and not overwrite:
-        with out_path.open("rb") as f:
-            head = f.read(4)
-        if head == b"GRIB":
-            vlog(f"Using cached HRRR subset: {out_path}")
-            return out_path
+    if not overwrite and is_complete_grib_file(out_path):
+        vlog(f"Using cached HRRR subset: {out_path}")
+        return out_path
     part_path = out_path.with_suffix(out_path.suffix + ".part")
     last_error = None
     for attempt in range(1, int(max_attempts) + 1):
@@ -2134,12 +2303,12 @@ def download_nomads_subset(
                         if chunk:
                             f.write(chunk)
                             nbytes += len(chunk)
-            if nbytes < 1000:
+            if not is_complete_grib_file(part_path):
                 head = part_path.read_bytes()[:500] if part_path.exists() else b""
-                raise RuntimeError(f"Downloaded file too small: {nbytes} bytes. Head={head!r}")
-            head = part_path.read_bytes()[:512]
-            if head[:4] != b"GRIB":
-                raise RuntimeError(f"Downloaded file does not start with GRIB. Head={head[:300]!r}")
+                raise RuntimeError(
+                    f"Downloaded file is not a complete GRIB message: {nbytes} bytes. "
+                    f"Head={head!r}"
+                )
             part_path.replace(out_path)
             vlog(f"  saved HRRR subset: {out_path} ({nbytes} bytes)")
             if pause_seconds and pause_seconds > 0:
@@ -2161,33 +2330,48 @@ def download_nomads_subset(
 
 
 def download_hrrr_ir_subset(session, run_date: str, cycle: str, fhr: int, out_dir: str | Path, args) -> tuple[Path, str]:
-    url = hrrr_nomads_url(run_date, cycle, fhr, ["SBT123", "SBT124"], "lev_top_of_atmosphere", extent=args.extent)
     out_path = Path(out_dir) / f"hrrr_{date8(run_date)}_t{int(cycle):02d}z_f{int(fhr):02d}_SBT123_SBT124.grib2"
-    return download_nomads_subset(
+    return download_hrrr_field_subset(
         session,
-        url,
+        run_date,
+        cycle,
+        fhr,
         out_path,
-        timeout=args.hrrr_download_timeout,
-        max_attempts=args.hrrr_max_download_attempts,
-        retry_seconds=args.hrrr_download_retry_seconds,
-        pause_seconds=args.hrrr_nomads_pause_seconds,
-        overwrite=args.force_hrrr_download,
-    ), url
+        nomads_variables=["SBT123", "SBT124"],
+        nomads_level="lev_top_of_atmosphere",
+        archive_selections=[("SBT123", "top of atmosphere")],
+        args=args,
+    )
+
+
+def download_hrrr_refc_subset(session, run_date: str, cycle: str, fhr: int, out_dir: str | Path, args) -> tuple[Path, str]:
+    out_path = Path(out_dir) / f"hrrr_{date8(run_date)}_t{int(cycle):02d}z_f{int(fhr):02d}_REFC.grib2"
+    return download_hrrr_field_subset(
+        session,
+        run_date,
+        cycle,
+        fhr,
+        out_path,
+        nomads_variables=["REFC"],
+        nomads_level="lev_entire_atmosphere",
+        archive_selections=[("REFC", "entire atmosphere")],
+        args=args,
+    )
 
 
 def download_hrrr_apcp_subset(session, run_date: str, cycle: str, fhr: int, out_dir: str | Path, args) -> tuple[Path, str]:
-    url = hrrr_nomads_url(run_date, cycle, fhr, ["APCP"], "lev_surface", extent=args.extent)
     out_path = Path(out_dir) / f"hrrr_{date8(run_date)}_t{int(cycle):02d}z_f{int(fhr):02d}_APCP.grib2"
-    return download_nomads_subset(
+    return download_hrrr_field_subset(
         session,
-        url,
+        run_date,
+        cycle,
+        fhr,
         out_path,
-        timeout=args.hrrr_download_timeout,
-        max_attempts=args.hrrr_max_download_attempts,
-        retry_seconds=args.hrrr_download_retry_seconds,
-        pause_seconds=args.hrrr_nomads_pause_seconds,
-        overwrite=args.force_hrrr_download,
-    ), url
+        nomads_variables=["APCP"],
+        nomads_level="lev_surface",
+        archive_selections=[("APCP", "surface")],
+        args=args,
+    )
 
 
 def read_grib_all_fields(path: str | Path) -> list[dict]:
@@ -2279,6 +2463,15 @@ def select_apcp_field(fields: list[dict]) -> dict:
     return fields[0]
 
 
+def select_refc_field(fields: list[dict]) -> dict:
+    for f in fields:
+        name = str(f.get("name", "")).upper()
+        attrs_text = " ".join(str(v).upper() for v in f.get("attrs", {}).values())
+        if "REFC" in name or "COMPOSITE RADAR REFLECTIVITY" in attrs_text:
+            return f
+    return fields[0]
+
+
 def threshold_mask(field, threshold: float, operator: str) -> np.ndarray:
     field = np.asarray(field, dtype=float)
     op = str(operator).strip()
@@ -2291,6 +2484,41 @@ def threshold_mask(field, threshold: float, operator: str) -> np.ndarray:
     if op == "<=":
         return np.isfinite(field) & (field <= float(threshold))
     raise ValueError(f"Unsupported threshold operator: {operator!r}. Use <, <=, >, or >=.")
+
+
+def subset_field_to_extent(field, lat, lon, extent=DEFAULT_EXTENT):
+    """Crop and mask HRRR grids to one source-independent forecast-domain grid."""
+    values = np.asarray(field, dtype=float)
+    latitudes = np.asarray(lat, dtype=float)
+    longitudes = normalize_lon(np.asarray(lon, dtype=float))
+    if latitudes.ndim == 1 and longitudes.ndim == 1:
+        longitudes, latitudes = np.meshgrid(longitudes, latitudes)
+    if values.shape != latitudes.shape or values.shape != longitudes.shape:
+        raise ValueError(
+            f"Field/coordinate shape mismatch: values={values.shape} "
+            f"lat={latitudes.shape} lon={longitudes.shape}"
+        )
+    lon_min, lon_max, lat_min, lat_max = map(float, extent)
+    inside = (
+        np.isfinite(latitudes)
+        & np.isfinite(longitudes)
+        & (latitudes >= lat_min)
+        & (latitudes <= lat_max)
+        & (longitudes >= lon_min)
+        & (longitudes <= lon_max)
+    )
+    rows = np.flatnonzero(np.any(inside, axis=1))
+    columns = np.flatnonzero(np.any(inside, axis=0))
+    if not len(rows) or not len(columns):
+        raise ValueError(f"HRRR grid does not intersect requested extent {extent}")
+    row_slice = slice(int(rows[0]), int(rows[-1]) + 1)
+    column_slice = slice(int(columns[0]), int(columns[-1]) + 1)
+    inside = inside[row_slice, column_slice]
+    return (
+        np.where(inside, values[row_slice, column_slice], np.nan),
+        latitudes[row_slice, column_slice],
+        longitudes[row_slice, column_slice],
+    )
 
 
 def largest_component(mask: np.ndarray, cell_area_km2: float = HRRR_DEFAULT_CELL_AREA_KM2) -> dict:
@@ -2511,7 +2739,12 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     cache_dir = Path(args.hrrr_trigger_cache_dir).expanduser() if args.hrrr_trigger_cache_dir else (rp.cache_dir / "hrrr_mcs_trigger_inputs" / f"{d}_{cycle}z")
     cache_dir.mkdir(parents=True, exist_ok=True)
     summary_path = cache_dir / f"hrrr_mcs_trigger_summary_{d}_{cycle}z.json"
-    mask_path = rp.outdir / f"hrrr_mcs_mask_{d}_{cycle}z_bt{args.bt_threshold_operator}{str(args.bt_threshold_k).replace('.','p')}_area{int(args.min_mcs_area_km2)}.npz"
+    mask_path = rp.outdir / (
+        f"hrrr_mcs_mask_{d}_{cycle}z_bt{args.bt_threshold_operator}"
+        f"{str(args.bt_threshold_k).replace('.','p')}_area{int(args.min_mcs_area_km2)}"
+        f"_duration{int(args.mcs_duration_hours)}h_pfaxis{int(args.precipitation_major_axis_km)}"
+        f"_convective{int(args.convective_threshold_dbz)}.npz"
+    )
 
     summary = {
         "run_date": d,
@@ -2522,11 +2755,17 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         "ir_bt_threshold_k": float(args.bt_threshold_k),
         "ir_threshold_operator": str(args.bt_threshold_operator),
         "ir_area_threshold_km2": float(args.min_mcs_area_km2),
+        "ir_duration_threshold_hours": int(args.mcs_duration_hours),
+        "track_overlap_threshold": float(args.track_overlap_threshold),
+        "precipitation_threshold_dbz": float(args.precipitation_threshold_dbz),
+        "precipitation_major_axis_threshold_km": float(args.precipitation_major_axis_km),
+        "convective_threshold_dbz": float(args.convective_threshold_dbz),
         "qpf6_threshold_mm": float(args.qpf6_threshold_mm),
         "qpf6_area_threshold_km2": float(args.qpf6_area_threshold_km2),
         "cell_area_km2_used": float(args.hrrr_cell_area_km2),
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "ir_records": [],
+        "reflectivity_records": [],
         "qpf6_records": [],
         "download_errors": [],
     }
@@ -2535,7 +2774,14 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     log("HRRR MCS trigger detection")
     log("================================================================================")
     log(f"Date={d} HRRR cycle={cycle}Z fhr={fhr_start:02d}-{fhr_end:02d}")
-    log(f"IR trigger: SBT {args.bt_threshold_operator} {float(args.bt_threshold_k):.1f} K and largest object >= {float(args.min_mcs_area_km2):.0f} km^2")
+    log(
+        f"Lifecycle trigger: SBT {args.bt_threshold_operator} {float(args.bt_threshold_k):.1f} K, "
+        f"cloud shield > {float(args.min_mcs_area_km2):.0f} km^2, "
+        f">= {float(args.precipitation_threshold_dbz):.0f} dBZ PF major axis > "
+        f"{float(args.precipitation_major_axis_km):.0f} km, "
+        f"convective REFC > {float(args.convective_threshold_dbz):.0f} dBZ, "
+        f"duration > 3 h ({int(args.mcs_duration_hours)} hourly frames)"
+    )
     log(f"Example HRRR SBT URL: {hrrr_nomads_url(d, cycle, fhr_start, ['SBT123', 'SBT124'], 'lev_top_of_atmosphere', extent=args.extent)}", verbose_only=True)
 
     ir_by_fhr: dict[int, np.ndarray] = {}
@@ -2566,11 +2812,16 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
                     data = np.squeeze(data)
                 if data.ndim != 2:
                     raise RuntimeError(f"Selected IR field has shape {data.shape}; expected 2D.")
+                field_lat = selected["lat"]
+                field_lon = selected["lon"]
+                data, field_lat, field_lon = subset_field_to_extent(
+                    data, field_lat, field_lon, args.extent
+                )
                 ir_by_fhr[fhr] = data
                 ir_name_by_fhr[fhr] = str(selected.get("name", "SBT"))
                 if lat is None:
-                    lat = selected["lat"]
-                    lon = selected["lon"]
+                    lat = field_lat
+                    lon = field_lon
                 vlog(f"Selected HRRR IR field f{fhr:02d}: {selected.get('name')} valid={hrrr_valid_time_utc(d, cycle, fhr).isoformat()}")
             except Exception as exc:
                 log(f"WARNING: HRRR IR failed for f{fhr:02d}: {exc}")
@@ -2581,6 +2832,37 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     if not ir_by_fhr:
         summary_path.write_text(json.dumps(summary, indent=2, default=str))
         raise RuntimeError("No HRRR SBT123/SBT124 fields were successfully downloaded/read for MCS detection.")
+
+    reflectivity_by_fhr: dict[int, np.ndarray] = {}
+    reflectivity_name_by_fhr: dict[int, str] = {}
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests is required for HRRR reflectivity downloads.") from exc
+    reflectivity_session = requests.Session()
+    reflectivity_session.headers.update({"User-Agent": "Mozilla/5.0 hrrr-mcs-trigger-ml-plotter/1.0"})
+    for fhr in range(fhr_start, fhr_end + 1):
+        try:
+            path, url = download_hrrr_refc_subset(
+                reflectivity_session, d, cycle, fhr, cache_dir, args
+            )
+            fields = read_grib_all_fields(path)
+            selected = select_refc_field(fields)
+            data = np.asarray(selected["data"], dtype=float).squeeze()
+            if data.ndim != 2:
+                raise RuntimeError(f"Selected REFC field has shape {data.shape}; expected 2D.")
+            data, _, _ = subset_field_to_extent(
+                data, selected["lat"], selected["lon"], args.extent
+            )
+            reflectivity_by_fhr[fhr] = data
+            reflectivity_name_by_fhr[fhr] = str(selected.get("name", "REFC"))
+        except Exception as exc:
+            log(f"WARNING: HRRR REFC failed for f{fhr:02d}: {exc}")
+            summary["download_errors"].append({"field": "REFC", "fhr": int(fhr), "error": str(exc)})
+    log(
+        f"HRRR REFC fields ready: {len(reflectivity_by_fhr)}/"
+        f"{fhr_end - fhr_start + 1} forecast hours ({cycle}Z f{fhr_start:02d}-f{fhr_end:02d})"
+    )
 
     best_ir = None
     for fhr, bt in ir_by_fhr.items():
@@ -2595,16 +2877,35 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
             "threshold_area_total_km2": float(np.sum(mask_all) * float(args.hrrr_cell_area_km2)),
             "max_ir_component_area_km2": float(comp["max_area_km2"]),
             "n_ir_components": int(comp["n_components"]),
-            "trigger": bool(comp["max_area_km2"] >= float(args.min_mcs_area_km2)),
+            "trigger": bool(comp["max_area_km2"] > float(args.min_mcs_area_km2)),
         }
         summary["ir_records"].append(rec)
         if best_ir is None or rec["max_ir_component_area_km2"] > best_ir["record"]["max_ir_component_area_km2"]:
             best_ir = {"fhr": fhr, "field": bt, "mask_all": mask_all, "component": comp, "record": rec}
 
-    ir_trigger = any(r["trigger"] for r in summary["ir_records"])
+    lifecycle = track_mcs_lifecycle(
+        ir_by_fhr,
+        reflectivity_by_fhr,
+        bt_threshold_k=float(args.bt_threshold_k),
+        cloud_area_threshold_km2=float(args.min_mcs_area_km2),
+        precipitation_threshold_dbz=float(args.precipitation_threshold_dbz),
+        precipitation_major_axis_threshold_km=float(args.precipitation_major_axis_km),
+        convective_threshold_dbz=float(args.convective_threshold_dbz),
+        duration_hours=int(args.mcs_duration_hours),
+        overlap_threshold=float(args.track_overlap_threshold),
+        cell_area_km2=float(args.hrrr_cell_area_km2),
+    )
+    summary["reflectivity_records"] = lifecycle.hourly_records
+    summary["best_lifecycle_track"] = lifecycle.best_track
+    summary["max_ir_duration_hours"] = int(lifecycle.max_ir_duration_hours)
+    summary["max_joint_duration_hours"] = int(lifecycle.max_joint_duration_hours)
+    summary["ir_duration_met"] = bool(lifecycle.ir_duration_met)
+    summary["structural_duration_met"] = bool(lifecycle.structural_duration_met)
+    ir_trigger = bool(lifecycle.ir_duration_met)
 
     # Optional HRRR 6-h QPF trigger/diagnostic. This is off by default so the MCS trigger is the SBT object.
     qpf_trigger = False
+    qpf_threshold_met = False
     best_qpf = None
     if args.include_qpf_trigger or args.include_qpf_debug:
         try:
@@ -2625,6 +2926,9 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
                     data = np.squeeze(data)
                 if data.ndim != 2:
                     raise RuntimeError(f"Selected APCP field has shape {data.shape}; expected 2D.")
+                data, _, _ = subset_field_to_extent(
+                    data, selected["lat"], selected["lon"], args.extent
+                )
                 apcp_by_fhr[fhr] = data
                 apcp_attrs_by_fhr[fhr] = selected.get("attrs", {})
                 vlog(f"Selected HRRR APCP field f{fhr:02d}: {selected.get('name')}")
@@ -2649,44 +2953,52 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
                 summary["qpf6_records"].append(rec)
                 if best_qpf is None or rec["max_qpf6_component_area_km2"] > best_qpf["record"]["max_qpf6_component_area_km2"]:
                     best_qpf = {"fhr": fhr, "field": qpf6, "mask": mask_qpf, "component": comp, "record": rec}
-            qpf_trigger = bool(args.include_qpf_trigger and any(r["trigger"] for r in summary["qpf6_records"]))
+            qpf_threshold_met = bool(any(r["trigger"] for r in summary["qpf6_records"]))
+            qpf_trigger = bool(args.include_qpf_trigger and qpf_threshold_met)
 
     selected_mask = np.zeros_like(best_ir["mask_all"], dtype=bool)
     selected_obj = None
-    if best_ir is not None and int(best_ir["component"].get("largest_label", 0)) > 0:
-        selected_mask = best_ir["component"]["labels"] == int(best_ir["component"]["largest_label"])
+    selected_fhr = lifecycle.selected_fhr
+    if lifecycle.selected_mask is not None and selected_fhr in ir_by_fhr:
+        selected_mask = lifecycle.selected_mask
         selected_obj = mcs_object_from_label(
-            int(best_ir["component"]["largest_label"]),
-            best_ir["component"]["labels"],
-            best_ir["field"],
+            1,
+            selected_mask.astype(np.int32),
+            ir_by_fhr[selected_fhr],
             lat,
             lon,
-            area_km2=float(best_ir["component"]["max_area_km2"]),
+            area_km2=float(np.sum(selected_mask) * float(args.hrrr_cell_area_km2)),
             cell_area_km2=args.hrrr_cell_area_km2,
         )
 
-    triggered = bool(ir_trigger or qpf_trigger)
+    # QPF is diagnostic only. A forecast is eligible only when the tracked IR
+    # shield and collocated simulated-reflectivity lifecycle both qualify.
+    triggered = bool(lifecycle.detected)
     summary["ir_trigger"] = bool(ir_trigger)
     summary["qpf6_trigger"] = bool(qpf_trigger)
+    summary["qpf6_threshold_met"] = bool(qpf_threshold_met)
     summary["mcs_detected"] = bool(triggered)
     summary["best_ir"] = best_ir["record"] if best_ir is not None else None
     summary["best_qpf6"] = best_qpf["record"] if best_qpf is not None else None
 
     ir_debug = None
-    if best_ir is not None and args.save_hrrr_debug_plots:
-        valid_str = hrrr_valid_time_utc(d, cycle, best_ir["fhr"]).strftime("%Y-%m-%d %HZ")
-        ir_debug = cache_dir / f"hrrr_{d}_{cycle}z_f{best_ir['fhr']:02d}_simulated_ir_trigger_debug.png"
+    debug_fhr = selected_fhr if selected_fhr in ir_by_fhr else (best_ir["fhr"] if best_ir else None)
+    if debug_fhr is not None and args.save_hrrr_debug_plots:
+        debug_bt = ir_by_fhr[debug_fhr]
+        debug_mask_all = threshold_mask(debug_bt, args.bt_threshold_k, args.bt_threshold_operator)
+        valid_str = hrrr_valid_time_utc(d, cycle, debug_fhr).strftime("%Y-%m-%d %HZ")
+        ir_debug = cache_dir / f"hrrr_{d}_{cycle}z_f{debug_fhr:02d}_simulated_ir_trigger_debug.png"
         plot_hrrr_trigger_debug(
-            field=best_ir["field"],
+            field=debug_bt,
             lat=lat,
             lon=lon,
-            threshold_mask_in=best_ir["mask_all"],
+            threshold_mask_in=debug_mask_all,
             selected_mask=selected_mask,
             out_path=ir_debug,
             title=(
-                f"HRRR simulated IR trigger | {d} {cycle}Z f{best_ir['fhr']:02d} | valid {valid_str}\n"
+                f"HRRR simulated IR lifecycle | {d} {cycle}Z f{debug_fhr:02d} | valid {valid_str}\n"
                 f"SBT {args.bt_threshold_operator} {float(args.bt_threshold_k):.0f} K | "
-                f"largest component = {best_ir['record']['max_ir_component_area_km2']:.0f} km$^2$"
+                f"max tracked duration = {lifecycle.max_ir_duration_hours} h"
             ),
             cbar_label="Brightness temperature (K)",
             cmap="gray_r",
@@ -2694,6 +3006,34 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
             vmax=320,
         )
         summary["best_ir_debug_image"] = str(ir_debug)
+
+    reflectivity_debug = None
+    if debug_fhr in reflectivity_by_fhr and args.save_hrrr_debug_plots:
+        reflectivity = reflectivity_by_fhr[debug_fhr]
+        reflectivity_mask = np.isfinite(reflectivity) & (
+            reflectivity > float(args.convective_threshold_dbz)
+        )
+        reflectivity_debug = cache_dir / (
+            f"hrrr_{d}_{cycle}z_f{debug_fhr:02d}_simulated_reflectivity_trigger_debug.png"
+        )
+        plot_hrrr_trigger_debug(
+            field=reflectivity,
+            lat=lat,
+            lon=lon,
+            threshold_mask_in=reflectivity_mask,
+            selected_mask=selected_mask & reflectivity_mask,
+            out_path=reflectivity_debug,
+            title=(
+                f"HRRR simulated reflectivity lifecycle | {d} {cycle}Z f{debug_fhr:02d} | valid {valid_str}\n"
+                f"REFC > {float(args.convective_threshold_dbz):.0f} dBZ | "
+                f"joint duration = {lifecycle.max_joint_duration_hours} h"
+            ),
+            cbar_label="Composite reflectivity (dBZ)",
+            cmap="turbo",
+            vmin=-10,
+            vmax=70,
+        )
+        summary["best_reflectivity_debug_image"] = str(reflectivity_debug)
 
     qpf_debug = None
     if best_qpf is not None and args.save_hrrr_debug_plots:
@@ -2725,7 +3065,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
     log(f"Saved HRRR trigger summary JSON: {summary_path}")
     write_mcs_mask_npz(mask_path, selected_mask, lat, lon, best_ir["field"], {"summary": summary})
 
-    n_passing = int(sum(1 for r in summary["ir_records"] if r["trigger"]))
+    n_passing = int(sum(1 for r in lifecycle.hourly_records if r["qualifying_cloud_count"] > 0))
     res = MCSDetectionResult(
         triggered=triggered,
         threshold_k=float(args.bt_threshold_k),
@@ -2737,22 +3077,38 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
         mask_path=str(mask_path),
         source="HRRR simulated IR SBT123/SBT124",
         hrrr_cycle=cycle,
-        selected_fhr=int(best_ir["fhr"]) if best_ir else None,
-        selected_valid_utc=best_ir["record"].get("valid_utc") if best_ir else None,
+        selected_fhr=int(selected_fhr) if selected_fhr is not None else None,
+        selected_valid_utc=(
+            hrrr_valid_time_utc(d, cycle, selected_fhr).isoformat()
+            if selected_fhr is not None
+            else None
+        ),
         ir_trigger=bool(ir_trigger),
+        ir_duration_met=bool(lifecycle.ir_duration_met),
+        structural_duration_met=bool(lifecycle.structural_duration_met),
+        max_ir_duration_hours=int(lifecycle.max_ir_duration_hours),
+        max_joint_duration_hours=int(lifecycle.max_joint_duration_hours),
         qpf6_trigger=bool(qpf_trigger),
+        qpf6_threshold_met=bool(qpf_threshold_met),
         summary_path=str(summary_path),
         ir_debug_image=str(ir_debug) if ir_debug else None,
         qpf6_debug_image=str(qpf_debug) if qpf_debug else None,
     )
-    log(f"HRRR trigger result: ir_trigger={ir_trigger} qpf6_trigger={qpf_trigger} triggered={triggered} largest_ir_area={res.largest_area_km2:,.0f} km^2")
-    return res, selected_mask, lat, lon, best_ir["field"]
+    log(
+        f"HRRR lifecycle result: ir_duration_met={lifecycle.ir_duration_met} "
+        f"structural_duration_met={lifecycle.structural_duration_met} "
+        f"qpf6_threshold_met={qpf_threshold_met} triggered={triggered} "
+        f"max_ir_duration={lifecycle.max_ir_duration_hours}h "
+        f"max_joint_duration={lifecycle.max_joint_duration_hours}h"
+    )
+    return res, selected_mask, lat, lon, ir_by_fhr.get(debug_fhr)
 
 
 def get_mcs_detection(args, rp: RuntimePaths):
     d = date8(args.date)
     if args.mcs_mask_path:
         mask, lat, lon, bt, meta = read_mcs_mask_npz(args.mcs_mask_path)
+        lifecycle_summary = meta.get("summary", {}) if isinstance(meta, dict) else {}
         area = float(np.sum(mask) * float(args.hrrr_cell_area_km2)) if mask.any() else 0.0
         obj = None
         if mask.any():
@@ -2766,15 +3122,27 @@ def get_mcs_detection(args, rp: RuntimePaths):
                 lon_min=float(np.nanmin(lon[mask])), lon_max=float(np.nanmax(lon[mask])),
             )
         res = MCSDetectionResult(
-            triggered=bool(args.force_trigger or area >= args.min_mcs_area_km2),
+            triggered=bool(
+                lifecycle_summary.get("mcs_detected", args.force_trigger)
+                or (not lifecycle_summary and area > args.min_mcs_area_km2)
+            ),
             threshold_k=float(args.bt_threshold_k),
             min_area_km2=float(args.min_mcs_area_km2),
             n_objects_total=1 if mask.any() else 0,
-            n_objects_passing=1 if area >= args.min_mcs_area_km2 else 0,
+            n_objects_passing=1 if area > args.min_mcs_area_km2 else 0,
             largest_area_km2=area,
             selected=obj,
             mask_path=str(args.mcs_mask_path),
-            source="external MCS mask",
+            source="saved HRRR lifecycle mask",
+            hrrr_cycle=lifecycle_summary.get("hrrr_cycle"),
+            selected_fhr=lifecycle_summary.get("best_lifecycle_track", {}).get("fhr"),
+            ir_trigger=lifecycle_summary.get("ir_trigger"),
+            ir_duration_met=lifecycle_summary.get("ir_duration_met"),
+            structural_duration_met=lifecycle_summary.get("structural_duration_met"),
+            max_ir_duration_hours=lifecycle_summary.get("max_ir_duration_hours"),
+            max_joint_duration_hours=lifecycle_summary.get("max_joint_duration_hours"),
+            qpf6_trigger=lifecycle_summary.get("qpf6_trigger"),
+            qpf6_threshold_met=lifecycle_summary.get("qpf6_threshold_met"),
         )
         return res, mask, lat, lon, bt
     if args.force_trigger and not args.ir_path and not args.run_hrrr_detector:
@@ -2979,6 +3347,7 @@ def parse_args(argv=None):
 
     p.add_argument("--run-hrrr-detector", action=argparse.BooleanOptionalAction, default=True, help="Run HRRR SBT123/SBT124 MCS detector before ML plotting. Default: true")
     p.add_argument("--hrrr-cycle", default=HRRR_DEFAULT_CYCLE, help="HRRR cycle for trigger detection. Default: 12")
+    p.add_argument("--hrrr-data-source", choices=["auto", "nomads", "aws"], default="auto", help="HRRR source. Auto uses NOMADS for recent runs and the NOAA AWS archive for older cases.")
     p.add_argument("--fhr-start", type=int, default=HRRR_DEFAULT_FHR_START, help="First HRRR forecast hour for SBT trigger scan. Default: 0")
     p.add_argument("--fhr-end", type=int, default=HRRR_DEFAULT_FHR_END, help="Last HRRR forecast hour for SBT trigger scan. Default: 24")
     p.add_argument("--ir-path", default=None, help="Optional local HRRR SBT GRIB2/NPZ file for single-file trigger testing. If omitted, HRRR SBT subsets are downloaded from NOMADS.")
@@ -2990,8 +3359,8 @@ def parse_args(argv=None):
     p.add_argument("--hrrr-nomads-pause-seconds", type=float, default=HRRR_DEFAULT_NOMADS_PAUSE_SECONDS, help="Pause after successful NOMADS subset download. Default: 0.25")
     p.add_argument("--hrrr-cell-area-km2", type=float, default=HRRR_DEFAULT_CELL_AREA_KM2, help="Approximate HRRR grid-cell area used for connected object area. Default: 9 km^2")
     p.add_argument("--bt-threshold-operator", default="<", choices=["<", "<=", ">", ">="], help="Operator for HRRR SBT trigger. Default: <, i.e., SBT < 241 K")
-    p.add_argument("--include-qpf-trigger", action="store_true", help="Also allow HRRR 6-h QPF to trigger ML plotting. Default: false; SBT MCS trigger controls automation.")
-    p.add_argument("--include-qpf-debug", action="store_true", help="Download HRRR APCP and save QPF6 debug/summary without letting it trigger unless --include-qpf-trigger is set.")
+    p.add_argument("--include-qpf-trigger", action="store_true", help="Deprecated compatibility flag. QPF is recorded diagnostically but cannot make a forecast MCS-eligible.")
+    p.add_argument("--include-qpf-debug", action="store_true", help="Download HRRR APCP and save the QPF6 rainfall-only diagnostic; QPF never triggers publishing.")
     p.add_argument("--qpf6-threshold-mm", type=float, default=QPF6_THRESHOLD_MM_DEFAULT, help="HRRR 6-h QPF threshold for optional QPF trigger/debug. Default: 50.8 mm")
     p.add_argument("--qpf6-area-threshold-km2", type=float, default=QPF6_AREA_THRESHOLD_KM2_DEFAULT, help="Minimum contiguous 6-h QPF area for optional QPF trigger. Default: 0")
     p.add_argument("--save-hrrr-debug-plots", action=argparse.BooleanOptionalAction, default=True, help="Save HRRR SBT/QPF debug plots. Default: true")
@@ -3000,7 +3369,13 @@ def parse_args(argv=None):
     p.add_argument("--lat-var", default=None, help="Latitude variable name in --ir-path.")
     p.add_argument("--lon-var", default=None, help="Longitude variable name in --ir-path.")
     p.add_argument("--bt-threshold-k", type=float, default=MCS_BT_THRESHOLD_K_DEFAULT, help="MCS cold cloud threshold. Default: BT < 241 K")
-    p.add_argument("--min-mcs-area-km2", type=float, default=MCS_MIN_AREA_KM2_DEFAULT, help="Minimum cold object area. Default: 6e4 km^2")
+    p.add_argument("--min-mcs-area-km2", type=float, default=MCS_MIN_AREA_KM2_DEFAULT, help="Tracked cold-cloud-shield area must exceed this value. Default: 40000 km^2")
+    p.add_argument("--mcs-duration-hours", type=int, default=MCS_MIN_DURATION_HOURS_DEFAULT, help="Consecutive hourly frames required for every structural criterion. Default: 4 frames (>3 hours)")
+    p.add_argument("--track-overlap-threshold", type=float, default=MCS_TRACK_OVERLAP_THRESHOLD_DEFAULT, help="Minimum consecutive-hour object overlap fraction. Default: 0.5")
+    p.add_argument("--precipitation-threshold-dbz", type=float, default=MCS_PRECIPITATION_THRESHOLD_DBZ_DEFAULT, help="Composite reflectivity used to delineate precipitation features. Default: 25 dBZ")
+    p.add_argument("--precipitation-major-axis-km", type=float, default=MCS_PRECIPITATION_MAJOR_AXIS_KM_DEFAULT, help="Precipitation-feature major axis must exceed this value. Default: 100 km")
+    p.add_argument("--convective-threshold-dbz", type=float, default=MCS_CONVECTIVE_THRESHOLD_DBZ_DEFAULT, help="A precipitation feature must contain composite reflectivity above this value. Default: 45 dBZ")
+    p.add_argument("--trigger-audit-only", action="store_true", help="Run the HRRR lifecycle/QPF audit, write status and summary JSON, and skip all ML prediction/plotting.")
     p.add_argument("--force-trigger", action="store_true", help="Skip/override MCS detection and run ML plotting anyway.")
     p.add_argument("--overlay-mcs-contour-on-public-plot", action="store_true", help="Deprecated/no-op. Public ML/WPC plots never include internal generation-gate contours.")
 
@@ -3107,6 +3482,16 @@ def main(argv=None) -> int:
         triggered = bool(mcs_result.triggered or args.force_trigger)
         status["triggered"] = triggered
         status["mcs_detection"] = asdict(mcs_result)
+        status["mcs_eligible"] = bool(mcs_result.triggered)
+        status["mcs_classification_label"] = (
+            "MCS-associated precipitation"
+            if mcs_result.triggered
+            else "Non-MCS-associated precipitation"
+        )
+        if args.trigger_audit_only:
+            status["finished_utc"] = datetime.now(timezone.utc).isoformat()
+            write_status(status_path, status)
+            return 0
         if not triggered:
             log(
                 f"No MCS trigger for {d}: total_objects={mcs_result.n_objects_total}, "

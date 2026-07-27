@@ -77,7 +77,7 @@ def test_pooled_counts_are_recalculated():
         date(2026, 7, 1),
         date(2026, 7, 3),
         "test",
-        "weekly",
+        "monthly",
     )
     result = window["products"]["ml_r40"]["5"]
     assert result["hits"] == 5
@@ -167,54 +167,63 @@ def test_published_manifests_and_verification_contracts():
     daily_dates = set(index["daily_dates"])
     for day in daily_dates:
         record = json.loads((docs / f"verification/daily/{day}.json").read_text())
-        assert record["schema_version"] == 2
+        assert record["schema_version"] == 3
         assert record["dataset_class"] == "realtime-issued-verification"
-        for thresholds in record["products"].values():
-            assert set(thresholds) == {"5", "15", "40", "70"}
-            for metrics in thresholds.values():
-                for count_name in [
-                    "hits",
-                    "misses",
-                    "false_alarms",
-                    "correct_negatives",
-                    "sample_count",
-                ]:
-                    assert isinstance(metrics[count_name], int)
-                    assert metrics[count_name] >= 0
-                for value in metrics.values():
-                    assert value is None or not isinstance(value, float) or math.isfinite(value)
-                assert "brier_skill_score" not in metrics
+        assert record["default_reference"] == "practically_perfect"
+        assert set(record["references"]) == {"practically_perfect", "ufvs_40km"}
+        assert record["products"] == record["references"]["practically_perfect"]["products"]
+        for reference in record["references"].values():
+            for thresholds in reference["products"].values():
+                assert set(thresholds) == {"5", "15", "40", "70"}
+                for metrics in thresholds.values():
+                    for count_name in [
+                        "hits",
+                        "misses",
+                        "false_alarms",
+                        "correct_negatives",
+                        "sample_count",
+                    ]:
+                        assert isinstance(metrics[count_name], int)
+                        assert metrics[count_name] >= 0
+                    for value in metrics.values():
+                        assert value is None or not isinstance(value, float) or math.isfinite(value)
+                    assert "brier_skill_score" not in metrics
 
     rolling = json.loads((docs / "verification/rolling/latest.json").read_text())
-    assert rolling["schema_version"] == 3
+    assert rolling["schema_version"] == 4
     assert rolling["dataset_class"] == "realtime-issued-verification"
+    assert set(rolling["windows"]) == {"monthly", "seasonal"}
+    assert not (docs / "verification/rolling/weekly.json").exists()
     for window in rolling["windows"].values():
-        assert window["schema_version"] == 3
+        assert window["schema_version"] == 4
+        assert window["default_reference"] == "practically_perfect"
+        assert set(window["references"]) == {"practically_perfect", "ufvs_40km"}
         assert set(window["verified_dates"]).issubset(daily_dates)
         assert window["missing_day_count"] >= 0
         assert window["start_date"] <= window["end_date"]
-        for thresholds in window["products"].values():
-            for metrics in thresholds.values():
-                assert "brier_skill_score" not in metrics
-                assert 0 <= metrics["risk_case_count"] <= metrics["verified_forecast_count"]
-                assert 0 <= metrics["truth_risk_case_count"] <= metrics["verified_forecast_count"]
-                assert sum(
-                    metrics[name]
-                    for name in [
-                        "risk_occurrence_hits",
-                        "risk_occurrence_misses",
-                        "risk_occurrence_false_alarms",
-                        "risk_occurrence_correct_negatives",
-                    ]
-                ) == metrics["verified_forecast_count"]
-                assert metrics["risk_case_count"] == (
-                    metrics["risk_occurrence_hits"]
-                    + metrics["risk_occurrence_false_alarms"]
-                )
-                assert metrics["truth_risk_case_count"] == (
-                    metrics["risk_occurrence_hits"]
-                    + metrics["risk_occurrence_misses"]
-                )
+        for reference in window["references"].values():
+            for thresholds in reference["products"].values():
+                for metrics in thresholds.values():
+                    assert "brier_skill_score" not in metrics
+                    assert 0 <= metrics["risk_case_count"] <= metrics["verified_forecast_count"]
+                    assert 0 <= metrics["reference_risk_case_count"] <= metrics["verified_forecast_count"]
+                    assert sum(
+                        metrics[name]
+                        for name in [
+                            "risk_occurrence_hits",
+                            "risk_occurrence_misses",
+                            "risk_occurrence_false_alarms",
+                            "risk_occurrence_correct_negatives",
+                        ]
+                    ) == metrics["verified_forecast_count"]
+                    assert metrics["risk_case_count"] == (
+                        metrics["risk_occurrence_hits"]
+                        + metrics["risk_occurrence_false_alarms"]
+                    )
+                    assert metrics["reference_risk_case_count"] == (
+                        metrics["risk_occurrence_hits"]
+                        + metrics["risk_occurrence_misses"]
+                    )
 
     index_html = (docs / "index.html").read_text()
     logo_path = docs / "assets/xgbffp-logo.png"
@@ -250,6 +259,10 @@ def test_published_manifests_and_verification_contracts():
         assert label in index_html
     assert "Brier Skill Score" not in index_html
     assert "risk-frequency" not in index_html
+    assert 'id="running-reference"' in index_html
+    assert 'value="practically_perfect"' in index_html
+    assert 'value="ufvs_40km"' in index_html
+    assert 'value="weekly"' not in index_html
 
     app_javascript = (docs / "app.js").read_text()
     stylesheet = (docs / "style.css").read_text()

@@ -1321,6 +1321,27 @@ tr.best-performing td {
 
 .pending-cell { color: var(--muted); }
 
+.non-mcs-archive-row {
+  color: #737b82;
+  background: rgba(128, 136, 143, 0.08);
+}
+
+.non-mcs-archive-row td { opacity: 0.72; }
+
+.non-mcs-label {
+  display: block;
+  max-width: 250px;
+  margin-top: 4px;
+  color: #9aa1a7;
+  font-size: 0.64rem;
+  line-height: 1.25;
+}
+
+.non-mcs-archive-row button:disabled {
+  color: #777f85;
+  cursor: not-allowed;
+}
+
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 10px 8px; border-bottom: 1px solid #2a3137; text-align: left; }
 th { color: #fff; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; }

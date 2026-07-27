@@ -23,7 +23,7 @@ development and human scientific decisions.
 
 - `?view=forecast` — 2D/3D map and Location Briefing
 - `?view=skill` — independent 2024–2025 test-set skill
-- `?view=running` — issued-forecast weekly, monthly, and seasonal verification
+- `?view=running` — issued-forecast trailing-30-day and seasonal verification
 - `?view=explainability` — finalized global SHAP and dependence figures
 - `?view=about` — product and evaluation-population overview
 
@@ -60,8 +60,9 @@ reports and UFVS observations use a labeled 40-km search radius.
 
 Formal model skill uses the final saved 2024–2025 test-set figures produced by
 the v33 viewer notebook. Running verification is calculated only from
-realtime-issued archive maps carrying a Practically Perfect layer; formal test
-cases are never backfilled into the realtime statistics. See
+realtime-issued, MCS-eligible archive maps and can be viewed against either the
+Practically Perfect field or the observed UFVS flood proxies expanded 40 km;
+formal test cases are never backfilled into the realtime statistics. See
 [`docs/METRICS.md`](docs/METRICS.md) and
 [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md).
 

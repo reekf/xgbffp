@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" crossorigin="">
-  <link rel="stylesheet" href="style.css?v=20260726-tabs-continuous-7">
+  <link rel="stylesheet" href="style.css?v=20260727-mcs-dualref-1">
 </head>
 <body>
   <div id="map" aria-label="Interactive ML flash-flood probability map"></div>
@@ -301,14 +301,19 @@
       <div class="dashboard-hero">
         <span class="eyebrow">Issued-forecast record</span>
         <h2>Running Real-Time Verification</h2>
-        <p>Running verification summarizes forecasts produced by this experimental real-time pipeline after their valid periods have ended. Statistics may change substantially when only a small number of cases are available.</p>
+        <p>Running verification summarizes forecasts produced by this experimental real-time pipeline after their valid periods have ended. Select either the smoothed Practically Perfect probability field or the binary UFVS flood-proxy observations expanded 40 km as the verification reference. Non-MCS-associated precipitation cases are excluded from all skill calculations.</p>
       </div>
       <div class="dashboard-toolbar">
         <label>Window
           <select id="running-window">
-            <option value="weekly">Latest 7 verified</option>
-            <option value="monthly">Trailing 30 days</option>
+            <option value="monthly" selected>Trailing 30 days</option>
             <option value="seasonal">Season to date</option>
+          </select>
+        </label>
+        <label>Reference
+          <select id="running-reference">
+            <option value="practically_perfect" selected>Practically Perfect</option>
+            <option value="ufvs_40km">UFVS proxies expanded 40 km</option>
           </select>
         </label>
         <label>Metric
@@ -331,7 +336,7 @@
             <option value="70">High</option>
           </select>
         </label>
-        <a class="text-button" id="running-json-download" href="verification/rolling/weekly.json" download>Download JSON</a>
+        <a class="text-button" id="running-json-download" href="verification/rolling/monthly.json" download>Download JSON</a>
       </div>
       <div id="running-status" class="dashboard-status" role="status">Loading issued-forecast verification…</div>
       <div id="running-summary" class="summary-strip"></div>
@@ -341,7 +346,7 @@
         <div id="running-chart" class="bar-chart metric-chart" aria-label="Running metric comparison"></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Product</th><th>Selected metric</th><th>Forecast risk days</th><th>PP risk days</th><th>Verified days</th><th>Hits</th><th>Misses</th><th>False alarms</th><th>Correct negatives</th><th>Day CSI</th><th>Day ETS</th></tr></thead>
+            <thead><tr><th>Product</th><th>Selected metric</th><th>Forecast risk days</th><th id="running-truth-days-heading">Reference risk days</th><th>Verified days</th><th>Hits</th><th>Misses</th><th>False alarms</th><th>Correct negatives</th><th>Day CSI</th><th>Day ETS</th></tr></thead>
             <tbody id="running-table"></tbody>
           </table>
         </div>
@@ -610,6 +615,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" crossorigin=""></script>
   <script src="https://unpkg.com/deck.gl@9.1.14/dist.min.js" crossorigin=""></script>
   <script src="briefing.js?v=20260719-xgbffp-1"></script>
-  <script src="app.js?v=20260726-tabs-continuous-7"></script>
+  <script src="app.js?v=20260727-mcs-dualref-1"></script>
 </body>
 </html>

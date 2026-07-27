@@ -60,7 +60,7 @@ The `dataset_class` is `formal-independent-test-set-explainability`. Figure
 entries include model, kind (`beeswarm`, `importance`, or `dependence`), test
 period, source function, timestamp, and path.
 
-## Daily realtime verification — schema version 2
+## Daily realtime verification — schema version 3
 
 Path: `verification/daily/YYYYMMDD.json`
 
@@ -68,37 +68,41 @@ Required fields:
 
 ```text
 dataset_class                 realtime-issued-verification
-verification_target           Practically Perfect: Any flood proxy
+default_reference             practically_perfect
 date
 valid_period_label
-products.<product>.<threshold>
+references.practically_perfect.products.<product>.<threshold>
+references.ufvs_40km.products.<product>.<threshold>
+products.<product>.<threshold>  backward-compatible PP alias
 ```
 
 Threshold records contain non-negative contingency counts, sample count, truth
 and forecast positive counts, squared-error sum, ETS, CSI, POD, FAR, frequency
 bias, and Brier Score. Undefined metrics are `null`.
 
-Only maps with `source_class == "realtime"` and an actual `layers.pp` array are
-eligible.
+Only maps with `source_class == "realtime"`, an actual `layers.pp` array, and a
+status that does not mark the case `mcs_eligible: false` are eligible. The UFVS
+reference is binary and places an event within 40 km of every archived observed
+flood-proxy point.
 
-## Rolling realtime verification — schema version 3
+## Rolling realtime verification — schema version 4
 
 Paths:
 
 ```text
 verification/rolling/latest.json
-verification/rolling/weekly.json
 verification/rolling/monthly.json
 verification/rolling/seasonal.json
 ```
 
 Each window records its definition, start/end dates, verified dates and count,
-expected calendar days, missing-day count, completeness, target, and pooled
-product/threshold metrics. Each product/threshold also records forecast and PP
-risk-day totals; day-level hits, misses, false alarms, and correct negatives;
-and day-level CSI and ETS. `risk_case_count` is the number of verified forecasts
-containing at least one grid cell at or above that threshold. `latest.json`
-embeds all three windows for one browser request.
+expected calendar days, missing-day count, completeness, both selectable
+references, and pooled product/threshold metrics. Each product/threshold also
+records forecast and selected-reference risk-day totals; day-level hits,
+misses, false alarms, and correct negatives; and day-level CSI and ETS.
+`risk_case_count` is the number of verified forecasts containing at least one
+grid cell at or above that threshold. `latest.json` embeds the trailing-30-day
+and seasonal windows for one browser request.
 
 `verification/index.json` lists available daily dates and paths.
 

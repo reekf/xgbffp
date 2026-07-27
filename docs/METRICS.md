@@ -61,11 +61,13 @@ also reports the number of verified cases containing at least one forecast
 grid cell at or above the selected risk threshold.
 
 The website's risk-occurrence contingency is separate from the pixel
-contingency. Each forecast day contributes exactly one outcome:
+contingency. The user selects either the smoothed Practically Perfect field or
+the binary UFVS proxy field expanded 40 km as the reference. Each forecast day
+then contributes exactly one outcome:
 
-- Hit: the forecast and Practically Perfect both contain the selected risk.
-- Miss: Practically Perfect contains it and the forecast does not.
-- False alarm: the forecast contains it and Practically Perfect does not.
+- Hit: the forecast and selected reference both contain the selected risk.
+- Miss: the selected reference contains it and the forecast does not.
+- False alarm: the forecast contains it and the selected reference does not.
 - Correct negative: neither contains it.
 
 Day-level CSI and ETS are recalculated from those occurrence counts. The
@@ -79,13 +81,14 @@ random hits equal the observed hits. The website reports this perfect
 occurrence agreement as ETS `1.0`. This convention applies only to the
 day-level occurrence ETS; it does not alter pooled pixel ETS.
 
-The verification target is `Practically Perfect: Any flood proxy`. Formal
-2024–2025 test cases and realtime-issued forecasts remain separate datasets.
+The default verification target is `Practically Perfect: Any flood proxy`;
+`UFVS flood proxies expanded 40 km` is available as a separate reference.
+Formal 2024–2025 test cases and realtime-issued forecasts remain separate
+datasets. Cases that fail the operational MCS lifecycle classification are not
+included in either realtime reference.
 
 ## Windows
 
-- Weekly: latest seven verified forecasts. The calendar gaps between the first
-  and last included forecast are reported.
 - Monthly: trailing 30 calendar days ending at the latest verified forecast.
 - Seasonal: latest meteorological season to date: DJF, MAM, JJA, or SON.
   December belongs to the DJF season ending the following February.

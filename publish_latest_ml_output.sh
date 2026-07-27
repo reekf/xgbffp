@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="/home/tyreekfrazier/ISU_Research_LOCAL_RUN/mesoanalysis/gempak-scripts"
+REPO_DIR="${REPO_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PROJECT_DIR="/home/tyreekfrazier/ISU_Research_LOCAL_RUN/fall_2025_ml_proj"
 OUT_DIR="${PROJECT_DIR}/v33_realtime_radiusstats_forecasts/mcs_triggered_figures"
 
@@ -62,12 +62,13 @@ write_public_status() {
   local published="$2"
   local plot_available="$3"
   local message="${4:-}"
-  python - "$DATE_ARG" "$dst" "$published" "$plot_available" "$message" <<'PY'
+  python - "$DATE_ARG" "$dst" "$published" "$plot_available" "$message" "$STATUS_SRC" <<'PY'
 import json
 import sys
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
-date, dst, published, plot_available, message = sys.argv[1:6]
+date, dst, published, plot_available, message, internal_status = sys.argv[1:7]
 published = published.lower() == "true"
 plot_available = plot_available.lower() == "true"
 
@@ -88,8 +89,32 @@ if message:
     status["message"] = message
 elif not plot_available:
     status["message"] = "No forecast graphic is available for this date."
+internal_path = Path(internal_status) if internal_status else None
+if internal_path and internal_path.is_file():
+    internal = json.loads(internal_path.read_text())
+    detection = internal.get("mcs_detection") or {}
+    eligible = bool(detection.get("triggered", internal.get("triggered", False)))
+    status.update({
+        "mcs_eligible": eligible,
+        "mcs_classification_label": (
+            "MCS-associated precipitation"
+            if eligible
+            else "Non-MCS-associated precipitation"
+        ),
+        "mcs_classification": {
+            "method": "PyFLEXTRKR-style HRRR object overlap lifecycle",
+            "cloud_shield": "SBT < 241 K and area >40000 km2 for >3 continuous hours",
+            "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for >3 continuous hours",
+            "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for >3 continuous hours",
+            "ir_duration_met": detection.get("ir_duration_met"),
+            "structural_duration_met": detection.get("structural_duration_met"),
+            "max_ir_duration_hours": detection.get("max_ir_duration_hours"),
+            "max_joint_duration_hours": detection.get("max_joint_duration_hours"),
+        },
+    })
 with open(dst, "w") as f:
     json.dump(status, f, indent=2, sort_keys=True)
+    f.write("\n")
 PY
 }
 
@@ -188,6 +213,9 @@ if archive_root.exists():
             ),
             "verification_embedded_in_forecast": bool(verification_embedded and not verification_exists),
             "verification_updated_utc": status.get("verification_updated_utc", status.get("site_updated_utc", "")),
+            "mcs_eligible": status.get("mcs_eligible", True),
+            "mcs_classification_label": status.get("mcs_classification_label", "MCS classification not audited"),
+            "verification_included": status.get("mcs_eligible", True),
         })
 
 out = {

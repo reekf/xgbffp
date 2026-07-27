@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="/home/tyreekfrazier/ISU_Research_LOCAL_RUN/mesoanalysis/gempak-scripts"
+REPO_DIR="${REPO_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PROJECT_DIR="/home/tyreekfrazier/ISU_Research_LOCAL_RUN/fall_2025_ml_proj"
 OUT_DIR="${PROJECT_DIR}/v33_realtime_radiusstats_forecasts/mcs_triggered_figures"
 
@@ -139,6 +139,9 @@ for candidate in sorted((p for p in archive_root.iterdir() if p.is_dir()), rever
         ),
         "verification_embedded_in_forecast": bool(verification_embedded and not verification_exists),
         "verification_updated_utc": candidate_status.get("verification_updated_utc", candidate_status.get("site_updated_utc", "")),
+        "mcs_eligible": candidate_status.get("mcs_eligible", True),
+        "mcs_classification_label": candidate_status.get("mcs_classification_label", "MCS classification not audited"),
+        "verification_included": candidate_status.get("mcs_eligible", True),
     })
 
 manifest = {"generated_utc": updated, "entries": entries}

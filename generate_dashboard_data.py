@@ -45,6 +45,23 @@ PRODUCT_LABELS = {
     "ml_mean": "ML ensemble mean",
     "wpc": "WPC ERO",
 }
+REFERENCE_META = {
+    "practically_perfect": {
+        "label": "Practically Perfect (smoothed any-flood-proxy field)",
+        "truth_definition": (
+            "Continuous Practically Perfect probabilities constructed from the available "
+            "UFVS flood proxies after 40-km expansion and 100-km smoothing."
+        ),
+    },
+    "ufvs_40km": {
+        "label": "UFVS flood proxies (40-km expansion)",
+        "truth_definition": (
+            "Binary occurrence within 40 km of any Stage IV > FFG, Stage IV ARI, "
+            "USGS, or flash-flood-report proxy point."
+        ),
+    },
+}
+DEFAULT_REFERENCE = "practically_perfect"
 
 
 def utc_now() -> str:
@@ -126,44 +143,112 @@ def daily_product(values: list[int], truth_values: list[int], threshold: int) ->
     return metrics
 
 
+def expanded_proxy_truth(payload: dict, radius_km: float = 40.0) -> list[int]:
+    """Return a binary grid mask within *radius_km* of any archived UFVS proxy."""
+    grid = payload.get("grid", {})
+    latitudes = grid.get("lat", [])
+    longitudes = grid.get("lon", [])
+    if len(latitudes) != len(longitudes):
+        raise ValueError("Archived map latitude/longitude lengths differ")
+    proxy_points: list[tuple[float, float]] = []
+    for observation in payload.get("observations", {}).values():
+        for point in observation.get("points", []):
+            if (
+                isinstance(point, list)
+                and len(point) >= 2
+                and all(isinstance(value, (int, float)) for value in point[:2])
+            ):
+                proxy_points.append((float(point[0]), float(point[1])))
+    truth = [0] * len(latitudes)
+    earth_radius_km = 6371.0088
+    for proxy_lat, proxy_lon in proxy_points:
+        lat_pad = radius_km / 110.574
+        lon_pad = radius_km / max(1.0, 111.320 * math.cos(math.radians(proxy_lat)))
+        proxy_lat_radians = math.radians(proxy_lat)
+        for index, (latitude, longitude) in enumerate(zip(latitudes, longitudes)):
+            if truth[index]:
+                continue
+            if abs(float(latitude) - proxy_lat) > lat_pad or abs(float(longitude) - proxy_lon) > lon_pad:
+                continue
+            lat_radians = math.radians(float(latitude))
+            delta_lat = lat_radians - proxy_lat_radians
+            delta_lon = math.radians(float(longitude) - proxy_lon)
+            haversine = (
+                math.sin(delta_lat / 2.0) ** 2
+                + math.cos(proxy_lat_radians)
+                * math.cos(lat_radians)
+                * math.sin(delta_lon / 2.0) ** 2
+            )
+            distance = 2.0 * earth_radius_km * math.asin(min(1.0, math.sqrt(haversine)))
+            if distance <= radius_km:
+                truth[index] = 1000
+    return truth
+
+
+def products_for_truth(layers: dict, truth_values: list[int], grid_count: int, path: Path) -> dict:
+    products = {}
+    for product in PRODUCTS:
+        values = layers.get(product, {}).get("values")
+        if not isinstance(values, list):
+            continue
+        if len(values) != grid_count:
+            raise ValueError(f"{path}: {product}/grid lengths differ")
+        if any(not isinstance(value, (int, float)) or not 0 <= value <= 1000 for value in values):
+            raise ValueError(f"{path}: {product} probabilities must be finite values from 0 to 1000")
+        products[product] = {
+            str(threshold): daily_product(values, truth_values, threshold)
+            for threshold in THRESHOLDS
+        }
+    return products
+
+
 def load_realtime_daily(archive_dir: Path) -> list[dict]:
     records = []
     for path in sorted(archive_dir.glob("20??????/map.json")):
         payload = json.loads(path.read_text())
         if payload.get("source_class") != "realtime":
             continue
-        layers = payload.get("layers", {})
-        truth_values = layers.get("pp", {}).get("values")
-        if not isinstance(truth_values, list) or not truth_values:
+        status_path = path.with_name("status.json")
+        status = json.loads(status_path.read_text()) if status_path.is_file() else {}
+        if status.get("mcs_eligible") is False:
             continue
-        if any(not isinstance(value, (int, float)) or not 0 <= value <= 1000 for value in truth_values):
+        layers = payload.get("layers", {})
+        pp_truth = layers.get("pp", {}).get("values")
+        if not isinstance(pp_truth, list) or not pp_truth:
+            continue
+        if any(not isinstance(value, (int, float)) or not 0 <= value <= 1000 for value in pp_truth):
             raise ValueError(f"{path}: PP probabilities must be finite values from 0 to 1000")
         grid_count = len(payload.get("grid", {}).get("lat", []))
-        if grid_count != len(truth_values):
+        if grid_count != len(pp_truth):
             raise ValueError(f"{path}: PP/grid lengths differ")
-        products = {}
-        for product in PRODUCTS:
-            values = layers.get(product, {}).get("values")
-            if not isinstance(values, list):
-                continue
-            if len(values) != grid_count:
-                raise ValueError(f"{path}: {product}/grid lengths differ")
-            if any(not isinstance(value, (int, float)) or not 0 <= value <= 1000 for value in values):
-                raise ValueError(f"{path}: {product} probabilities must be finite values from 0 to 1000")
-            products[product] = {
-                str(threshold): daily_product(values, truth_values, threshold)
-                for threshold in THRESHOLDS
-            }
-        if not products:
+        ufvs_truth = expanded_proxy_truth(payload, radius_km=40.0)
+        references = {
+            "practically_perfect": {
+                **REFERENCE_META["practically_perfect"],
+                "products": products_for_truth(layers, pp_truth, grid_count, path),
+            },
+            "ufvs_40km": {
+                **REFERENCE_META["ufvs_40km"],
+                "products": products_for_truth(layers, ufvs_truth, grid_count, path),
+                "proxy_point_count": sum(
+                    len(observation.get("points", []))
+                    for observation in payload.get("observations", {}).values()
+                ),
+            },
+        }
+        if not references[DEFAULT_REFERENCE]["products"]:
             continue
         records.append(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "dataset_class": "realtime-issued-verification",
-                "verification_target": "Practically Perfect: Any flood proxy",
+                "verification_target": REFERENCE_META[DEFAULT_REFERENCE]["label"],
+                "default_reference": DEFAULT_REFERENCE,
                 "date": str(payload["date"]),
                 "valid_period_label": payload.get("valid_period_label", ""),
-                "products": products,
+                "references": references,
+                # Backward-compatible alias for clients predating reference selection.
+                "products": references[DEFAULT_REFERENCE]["products"],
             }
         )
     return records
@@ -189,12 +274,9 @@ def select_windows(records: list[dict]) -> dict[str, tuple[list[dict], date, dat
         return {}
     ordered = sorted(records, key=lambda row: row["date"])
     latest = parse_date(ordered[-1]["date"])
-    weekly_rows = ordered[-7:]
-    weekly_start = parse_date(weekly_rows[0]["date"])
     monthly_start = latest - timedelta(days=29)
     seasonal_start, seasonal_end, season = season_bounds(latest)
     return {
-        "weekly": (weekly_rows, weekly_start, latest, "Latest seven verified forecasts"),
         "monthly": (
             [row for row in ordered if monthly_start <= parse_date(row["date"]) <= latest],
             monthly_start,
@@ -210,17 +292,21 @@ def select_windows(records: list[dict]) -> dict[str, tuple[list[dict], date, dat
     }
 
 
-def aggregate_window(
-    records: list[dict], start: date, end: date, definition: str, window_name: str
-) -> dict:
+def aggregate_reference_products(records: list[dict], reference: str) -> dict:
     products = {}
     for product in PRODUCTS:
         threshold_payload = {}
         for threshold in THRESHOLDS:
             rows = [
-                record["products"][product][str(threshold)]
+                (
+                    record.get("references", {})
+                    .get(reference, {"products": record.get("products", {})})["products"]
+                    [product][str(threshold)]
+                )
                 for record in records
-                if product in record["products"]
+                if product
+                in record.get("references", {})
+                .get(reference, {"products": record.get("products", {})})["products"]
             ]
             if not rows:
                 continue
@@ -276,6 +362,7 @@ def aggregate_window(
                     "brier_score": brier,
                     "risk_case_count": occurrence_hits + occurrence_false_alarms,
                     "truth_risk_case_count": occurrence_hits + occurrence_misses,
+                    "reference_risk_case_count": occurrence_hits + occurrence_misses,
                     "risk_occurrence_hits": occurrence_hits,
                     "risk_occurrence_misses": occurrence_misses,
                     "risk_occurrence_false_alarms": occurrence_false_alarms,
@@ -288,11 +375,31 @@ def aggregate_window(
             threshold_payload[str(threshold)] = metrics
         if threshold_payload:
             products[product] = threshold_payload
+    return products
+
+
+def aggregate_window(
+    records: list[dict], start: date, end: date, definition: str, window_name: str
+) -> dict:
+    references = {}
+    available_references = [
+        reference
+        for reference in REFERENCE_META
+        if any(reference in record.get("references", {}) for record in records)
+    ] or [DEFAULT_REFERENCE]
+    for reference in available_references:
+        references[reference] = {
+            **REFERENCE_META[reference],
+            "products": aggregate_reference_products(records, reference),
+        }
+    products = references[DEFAULT_REFERENCE]["products"]
     expected_days = (end - start).days + 1
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "dataset_class": "realtime-issued-verification",
-        "verification_target": "Practically Perfect: Any flood proxy",
+        "verification_target": REFERENCE_META[DEFAULT_REFERENCE]["label"],
+        "default_reference": DEFAULT_REFERENCE,
+        "references": references,
         "window": window_name,
         "definition": definition,
         "start_date": start.strftime("%Y%m%d"),
@@ -507,6 +614,10 @@ def validate_manifest_paths(docs_dir: Path, manifest: dict) -> None:
 def publish_realtime_verification(docs_dir: Path, generated: str) -> dict:
     output_root = docs_dir / "verification"
     records = load_realtime_daily(docs_dir / "archive")
+    included_dates = {record["date"] for record in records}
+    for stale in (output_root / "daily").glob("20??????.json"):
+        if stale.stem not in included_dates:
+            stale.unlink()
     for record in records:
         write_json(output_root / f"daily/{record['date']}.json", record)
     windows = {}
@@ -515,15 +626,16 @@ def publish_realtime_verification(docs_dir: Path, generated: str) -> dict:
         window["generated_utc"] = generated
         windows[name] = window
         write_json(output_root / f"rolling/{name}.json", window)
+    (output_root / "rolling/weekly.json").unlink(missing_ok=True)
     latest = {
-        "schema_version": 3,
+        "schema_version": 4,
         "dataset_class": "realtime-issued-verification",
         "generated_utc": generated,
         "windows": windows,
     }
     write_json(output_root / "rolling/latest.json", latest)
     index = {
-        "schema_version": 3,
+        "schema_version": 4,
         "dataset_class": "realtime-issued-verification",
         "generated_utc": generated,
         "daily_record_count": len(records),

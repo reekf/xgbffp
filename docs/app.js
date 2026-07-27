@@ -2388,6 +2388,11 @@ function updateDateUI(entry) {
 
 async function loadDate(date, fit = false) {
   const entry = state.archive.find((item) => String(item.date) === String(date));
+  if (entry?.mcs_eligible === false) {
+    document.getElementById("product-message").textContent =
+      `${date} is excluded from maps and verification: ${entry.mcs_classification_label || "Non-MCS-associated precipitation"}.`;
+    return;
+  }
   showLoading(`Loading ${date}…`);
   try {
     const mapVersion = `${entry?.map_updated_utc || entry?.site_updated_utc || Date.now()}-${MAP_DATA_VERSION}`;
@@ -2437,8 +2442,11 @@ function populateDates() {
   for (const entry of state.archive) {
     const option = document.createElement("option");
     option.value = entry.date;
-    option.textContent = `${String(entry.date).slice(0, 4)}-${String(entry.date).slice(4, 6)}-${String(entry.date).slice(6, 8)}`;
-    option.disabled = entry.map_available === false;
+    const dateLabel = `${String(entry.date).slice(0, 4)}-${String(entry.date).slice(4, 6)}-${String(entry.date).slice(6, 8)}`;
+    option.textContent = entry.mcs_eligible === false
+      ? `${dateLabel} — Non-MCS-associated precipitation`
+      : dateLabel;
+    option.disabled = entry.map_available === false || entry.mcs_eligible === false;
     select.append(option);
   }
   select.addEventListener("change", () => loadDate(select.value));
@@ -2449,26 +2457,36 @@ function populateArchive() {
   rows.replaceChildren();
   for (const entry of state.archive) {
     const row = document.createElement("tr");
+    const excludedNonMcs = entry.mcs_eligible === false;
+    if (excludedNonMcs) row.className = "non-mcs-archive-row";
     const dateCell = document.createElement("td");
     const validCell = document.createElement("td");
     const mapCell = document.createElement("td");
     const staticCell = document.createElement("td");
     const verificationCell = document.createElement("td");
     dateCell.textContent = entry.date;
+    if (excludedNonMcs) {
+      const label = document.createElement("span");
+      label.className = "non-mcs-label";
+      label.textContent = entry.mcs_classification_label || "Non-MCS-associated precipitation";
+      dateCell.append(label);
+    }
     validCell.textContent = entry.valid_period_label || "—";
 
     const loadButton = document.createElement("button");
     loadButton.type = "button";
     loadButton.className = "archive-load";
-    loadButton.textContent = entry.map_available === false ? "Unavailable" : "Load map";
-    loadButton.disabled = entry.map_available === false;
+    loadButton.textContent = excludedNonMcs
+      ? "Excluded"
+      : entry.map_available === false ? "Unavailable" : "Load map";
+    loadButton.disabled = entry.map_available === false || excludedNonMcs;
     loadButton.addEventListener("click", () => {
       document.getElementById("archive-dialog").close();
       loadDate(entry.date);
     });
     mapCell.append(loadButton);
 
-    if (entry.plot_href) {
+    if (entry.plot_href && !excludedNonMcs) {
       const link = document.createElement("a");
       link.href = entry.plot_href;
       link.target = "_blank";
@@ -2479,7 +2497,7 @@ function populateArchive() {
       staticCell.textContent = "—";
     }
 
-    if (entry.verification_available && entry.verification_plot_href) {
+    if (entry.verification_available && entry.verification_plot_href && !excludedNonMcs) {
       const link = document.createElement("a");
       link.href = entry.verification_plot_href;
       link.target = "_blank";
@@ -2490,7 +2508,7 @@ function populateArchive() {
         : "Open Practically Perfect verification image";
       verificationCell.append(link);
     } else {
-      verificationCell.textContent = "Pending";
+      verificationCell.textContent = excludedNonMcs ? "Excluded from skill" : "Pending";
       verificationCell.className = "pending-cell";
     }
     row.append(dateCell, validCell, mapCell, staticCell, verificationCell);
@@ -2682,6 +2700,7 @@ async function loadSkillDashboard() {
 
 function renderRunningDashboard() {
   const windowName = document.getElementById("running-window").value;
+  const referenceName = document.getElementById("running-reference").value;
   const metric = document.getElementById("running-metric").value;
   const threshold = document.getElementById("running-threshold").value;
   const windowData = state.runningVerification?.windows?.[windowName];
@@ -2702,7 +2721,12 @@ function renderRunningDashboard() {
     warning.hidden = true;
     return;
   }
-  status.textContent = `${windowData.definition} · ${windowData.verification_target}`;
+  const referenceData = windowData.references?.[referenceName]
+    || windowData.references?.[windowData.default_reference]
+    || windowData;
+  const referenceLabel = referenceData.label || windowData.verification_target;
+  status.textContent = `${windowData.definition} · Reference: ${referenceLabel}`;
+  document.getElementById("running-truth-days-heading").textContent = "Reference risk days";
   for (const [label, value] of [
     ["Verified forecasts", windowData.verified_forecast_count],
     ["Date range", `${windowData.start_date}–${windowData.end_date}`],
@@ -2715,7 +2739,7 @@ function renderRunningDashboard() {
   }
   warning.hidden = windowData.verified_forecast_count >= 10;
   warning.textContent = `Only ${windowData.verified_forecast_count} verified forecasts are available in this window. Interpret this running statistic cautiously.`;
-  const rows = Object.entries(windowData.products || {}).map(([key, thresholds]) => ({
+  const rows = Object.entries(referenceData.products || {}).map(([key, thresholds]) => ({
     key,
     label: PRODUCT_META[key]?.short || key,
     values: thresholds[threshold],
@@ -2774,7 +2798,7 @@ function renderRunningDashboard() {
       isBest ? `${row.label} · Best ${direction.label}` : row.label,
       metricValueText(value),
       row.values.risk_case_count,
-      row.values.truth_risk_case_count,
+      row.values.reference_risk_case_count ?? row.values.truth_risk_case_count,
       row.values.verified_forecast_count,
       row.values.risk_occurrence_hits,
       row.values.risk_occurrence_misses,
@@ -3021,7 +3045,7 @@ document.getElementById("copy-briefing").addEventListener("click", async () => {
 for (const id of ["skill-occurrence-threshold", "skill-occurrence-metric"]) {
   document.getElementById(id).addEventListener("change", renderSkillOccurrence);
 }
-for (const id of ["running-window", "running-metric", "running-threshold"]) {
+for (const id of ["running-window", "running-reference", "running-metric", "running-threshold"]) {
   document.getElementById(id).addEventListener("change", renderRunningDashboard);
 }
 document.getElementById("shap-model").addEventListener("change", renderExplainabilityDashboard);

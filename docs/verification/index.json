@@ -29,11 +29,10 @@
   "daily_path_template": "verification/daily/{date}.json",
   "daily_record_count": 25,
   "dataset_class": "realtime-issued-verification",
-  "generated_utc": "2026-07-27T18:43:44Z",
+  "generated_utc": "2026-07-27T20:09:16Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
-    "seasonal": "verification/rolling/seasonal.json",
-    "weekly": "verification/rolling/weekly.json"
+    "seasonal": "verification/rolling/seasonal.json"
   },
-  "schema_version": 3
+  "schema_version": 4
 }
