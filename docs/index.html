@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" crossorigin="">
-  <link rel="stylesheet" href="style.css?v=20260727-mcs-dualref-1">
+  <link rel="stylesheet" href="style.css?v=20260728-day2-1">
 </head>
 <body>
   <div id="map" aria-label="Interactive ML flash-flood probability map"></div>
@@ -41,6 +41,14 @@
       <select id="date-select" aria-label="Forecast date"></select>
       <span id="valid-period">Loading forecast…</span>
     </div>
+
+    <label class="horizon-control" for="forecast-day-select">
+      <span>Forecast horizon</span>
+      <select id="forecast-day-select" aria-label="Forecast horizon">
+        <option value="1" selected>Day 1</option>
+        <option value="2">Day 2</option>
+      </select>
+    </label>
 
     <nav class="top-actions" aria-label="Site actions">
       <button id="mobile-actions-toggle" class="icon-button mobile-actions-toggle" type="button" aria-expanded="false" aria-label="Open map actions">Menu</button>
@@ -356,13 +364,15 @@
     <section id="view-explainability" class="dashboard-view" data-dashboard-view="explainability" hidden>
       <div class="dashboard-hero">
         <span class="eyebrow">Model transparency</span>
-        <h2>Global SHAP Explainability</h2>
-        <p>SHAP values estimate how strongly each predictor shifts the model prediction away from its average prediction. Positive and negative effects are relative to the fitted model and do not establish causation.</p>
+        <h2>Model Explainability and Feature Importance</h2>
+        <p>Day 1 includes finalized SHAP summaries. Day 2 includes native XGBoost feature importance for every radius model. These diagnostics describe fitted models and do not establish causation.</p>
       </div>
       <div class="dashboard-toolbar">
         <label>Model
           <select id="shap-model">
+            <option value="r40">r40</option>
             <option value="r60">r60</option>
+            <option value="r75">r75</option>
             <option value="r100">r100</option>
           </select>
         </label>
@@ -615,6 +625,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" crossorigin=""></script>
   <script src="https://unpkg.com/deck.gl@9.1.14/dist.min.js" crossorigin=""></script>
   <script src="briefing.js?v=20260719-xgbffp-1"></script>
-  <script src="app.js?v=20260727-mcs-dualref-1"></script>
+  <script src="app.js?v=20260728-day2-1"></script>
 </body>
 </html>

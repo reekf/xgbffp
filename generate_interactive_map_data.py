@@ -19,6 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 
 PROJECT_DIR = Path("/home/tyreekfrazier/ISU_Research_LOCAL_RUN/fall_2025_ml_proj")
 REALTIME_DIR = PROJECT_DIR / "v33_realtime_radiusstats_forecasts" / "verified"
@@ -217,6 +218,22 @@ def probability_millipercent(values: pd.Series) -> list[int]:
     return np.rint(numeric * 1000.0).astype(np.uint16).tolist()
 
 
+def expand_binary_40km(frame: pd.DataFrame, column: str) -> np.ndarray:
+    mask = pd.to_numeric(frame[column], errors="coerce").fillna(0).to_numpy(float) > 0
+    if not mask.any():
+        return np.zeros(len(frame), dtype=np.uint16)
+    lat = np.deg2rad(pd.to_numeric(frame["Lat"], errors="coerce").to_numpy(float))
+    lon = np.deg2rad(pd.to_numeric(frame["Lon"], errors="coerce").to_numpy(float))
+    xyz = np.column_stack((np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)))
+    tree = cKDTree(xyz)
+    chord = 2.0 * np.sin((40.0 / 6371.0) / 2.0)
+    expanded = np.zeros(len(frame), dtype=bool)
+    for neighbors in tree.query_ball_point(xyz[np.flatnonzero(mask)], r=chord):
+        if neighbors:
+            expanded[np.asarray(neighbors, dtype=np.int64)] = True
+    return expanded.astype(np.uint16) * 1000
+
+
 def load_top_predictors(date: str, base: pd.DataFrame) -> dict:
     payload = {}
     for radius, specs in TOP_PREDICTORS.items():
@@ -306,7 +323,14 @@ def load_observations(date: str) -> dict:
     return observations
 
 
-def build_payload(frame: pd.DataFrame, date: str, source: str) -> dict:
+def build_payload(
+    frame: pd.DataFrame,
+    date: str,
+    source: str,
+    *,
+    forecast_day: int = 1,
+    issue_date: str | None = None,
+) -> dict:
     required = ["Date", "Lat", "Lon"]
     missing = [column for column in required if column not in frame.columns]
     if missing:
@@ -339,9 +363,26 @@ def build_payload(frame: pd.DataFrame, date: str, source: str) -> dict:
 
     start = datetime.strptime(date + "12", "%Y%m%d%H").replace(tzinfo=timezone.utc)
     end = start + timedelta(days=1)
+    day = int(forecast_day)
+    issue = date8(issue_date) if issue_date else (
+        (datetime.strptime(date, "%Y%m%d") - timedelta(days=day - 1)).strftime("%Y%m%d")
+    )
+    verification_truths = {}
+    if "PP_Any flood proxy" in frame:
+        verification_truths["practically_perfect"] = {
+            "label": "Practically Perfect (smoothed any-flood-proxy field)",
+            "values": probability_millipercent(frame["PP_Any flood proxy"]),
+        }
+    if "UFVS_ANY" in frame:
+        verification_truths["ufvs_40km"] = {
+            "label": "UFVS flood proxies (40-km expansion)",
+            "values": expand_binary_40km(frame, "UFVS_ANY").tolist(),
+        }
     return {
         "schema_version": 5,
         "date": date,
+        "issue_date": issue,
+        "forecast_day": day,
         "valid_period_label": f"{start:%Y-%m-%d} 12Z to {end:%Y-%m-%d} 12Z",
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_class": source,
@@ -354,13 +395,22 @@ def build_payload(frame: pd.DataFrame, date: str, source: str) -> dict:
         "layers": layers,
         "contours": contours,
         "observations": load_observations(date) if "pp" in layers else {},
-        "predictors": load_top_predictors(date, frame) if source == "realtime" else {},
+        "verification_truths": verification_truths,
+        "predictors": load_top_predictors(date, frame) if source == "realtime" and day == 1 else {},
     }
 
 
-def write_frame_map_data(frame: pd.DataFrame, date: str, output: Path, source: str) -> Path:
+def write_frame_map_data(
+    frame: pd.DataFrame,
+    date: str,
+    output: Path,
+    source: str,
+    *,
+    forecast_day: int = 1,
+    issue_date: str | None = None,
+) -> Path:
     date = date8(date)
-    payload = build_payload(frame, date, source)
+    payload = build_payload(frame, date, source, forecast_day=forecast_day, issue_date=issue_date)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, separators=(",", ":")) + "\n")
@@ -372,10 +422,29 @@ def write_frame_map_data(frame: pd.DataFrame, date: str, output: Path, source: s
     return output
 
 
-def write_map_data(date: str, output: Path, source: str = "auto") -> Path:
+def write_map_data(
+    date: str,
+    output: Path,
+    source: str = "auto",
+    *,
+    forecast_day: int = 1,
+    issue_date: str | None = None,
+    input_parquet: Path | None = None,
+) -> Path:
     date = date8(date)
-    frame, selected_source = load_case(date, source=source)
-    return write_frame_map_data(frame, date, output, selected_source)
+    if input_parquet is not None:
+        frame = pd.read_parquet(input_parquet)
+        selected_source = source if source != "auto" else "realtime"
+    else:
+        frame, selected_source = load_case(date, source=source)
+    return write_frame_map_data(
+        frame,
+        date,
+        output,
+        selected_source,
+        forecast_day=forecast_day,
+        issue_date=issue_date,
+    )
 
 
 def main() -> int:
@@ -383,8 +452,18 @@ def main() -> int:
     parser.add_argument("--date", required=True, help="Forecast valid-start date YYYYMMDD")
     parser.add_argument("--output", required=True, help="Destination map.json")
     parser.add_argument("--source", choices=("auto", "realtime", "historical"), default="auto")
+    parser.add_argument("--forecast-day", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--issue-date", default=None)
+    parser.add_argument("--input-parquet", type=Path, default=None)
     args = parser.parse_args()
-    write_map_data(args.date, Path(args.output), source=args.source)
+    write_map_data(
+        args.date,
+        Path(args.output),
+        source=args.source,
+        forecast_day=args.forecast_day,
+        issue_date=args.issue_date,
+        input_parquet=args.input_parquet,
+    )
     return 0
 
 

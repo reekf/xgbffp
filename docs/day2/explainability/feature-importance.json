@@ -1,0 +1,410 @@
+{
+  "r40": [
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R40km_Max",
+      "importance": 0.04345867037773132,
+      "rank": 1
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R40km_Std",
+      "importance": 0.035989370197057724,
+      "rank": 2
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R40km_Max",
+      "importance": 0.03549913689494133,
+      "rank": 3
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R40km_Max",
+      "importance": 0.02913374826312065,
+      "rank": 4
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R40km_Std",
+      "importance": 0.020134873688220978,
+      "rank": 5
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R40km_Mean",
+      "importance": 0.018842827528715134,
+      "rank": 6
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R40km_Max",
+      "importance": 0.016252893954515457,
+      "rank": 7
+    },
+    {
+      "feature": "10m_WindSpeed_0_6_12_18_24h_Mean_R40km_Min",
+      "importance": 0.01556189451366663,
+      "rank": 8
+    },
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R40km_Std",
+      "importance": 0.01467048842459917,
+      "rank": 9
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R40km_Mean",
+      "importance": 0.014044839888811111,
+      "rank": 10
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R40km_Mean",
+      "importance": 0.013358177617192268,
+      "rank": 11
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R40km_Min",
+      "importance": 0.01253090426325798,
+      "rank": 12
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Mean_R40km_Mean",
+      "importance": 0.012353342026472092,
+      "rank": 13
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R40km_Std",
+      "importance": 0.01219911314547062,
+      "rank": 14
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R40km_Mean",
+      "importance": 0.010537565685808659,
+      "rank": 15
+    },
+    {
+      "feature": "Precip_Rate_24_30_36_42_48h_Mean_R40km_Mean",
+      "importance": 0.009931070730090141,
+      "rank": 16
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R40km_Mean",
+      "importance": 0.009256549179553986,
+      "rank": 17
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R40km_Max",
+      "importance": 0.008900563232600689,
+      "rank": 18
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R40km_Mean",
+      "importance": 0.008244878612458706,
+      "rank": 19
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Max_R40km_Mean",
+      "importance": 0.007997010834515095,
+      "rank": 20
+    }
+  ],
+  "r60": [
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R60km_Std",
+      "importance": 0.08319003134965897,
+      "rank": 1
+    },
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R60km_Max",
+      "importance": 0.06720133125782013,
+      "rank": 2
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R60km_Max",
+      "importance": 0.06515227258205414,
+      "rank": 3
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R60km_Std",
+      "importance": 0.04261711984872818,
+      "rank": 4
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R60km_Std",
+      "importance": 0.04159101843833923,
+      "rank": 5
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R60km_Mean",
+      "importance": 0.02902369387447834,
+      "rank": 6
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R60km_Max",
+      "importance": 0.02627071924507618,
+      "rank": 7
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R60km_Max",
+      "importance": 0.025281662121415138,
+      "rank": 8
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R60km_Std",
+      "importance": 0.023530086502432823,
+      "rank": 9
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R60km_Max",
+      "importance": 0.023022981360554695,
+      "rank": 10
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R60km_Mean",
+      "importance": 0.018255775794386864,
+      "rank": 11
+    },
+    {
+      "feature": "MLCIN_24_30_36_42_48h_Max_R60km_Std",
+      "importance": 0.014261945150792599,
+      "rank": 12
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R60km_Max",
+      "importance": 0.013235711492598057,
+      "rank": 13
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R60km_Min",
+      "importance": 0.012344392016530037,
+      "rank": 14
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R60km_Mean",
+      "importance": 0.011482342146337032,
+      "rank": 15
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Max_R60km_Max",
+      "importance": 0.010058226063847542,
+      "rank": 16
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R60km_Mean",
+      "importance": 0.009837712161242962,
+      "rank": 17
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Mean_R60km_Mean",
+      "importance": 0.009724495932459831,
+      "rank": 18
+    },
+    {
+      "feature": "MLCIN_24_30_36_42_48h_Max_R60km_Min",
+      "importance": 0.009232713840901852,
+      "rank": 19
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Max_R60km_Min",
+      "importance": 0.00870345439761877,
+      "rank": 20
+    }
+  ],
+  "r75": [
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R75km_Mean",
+      "importance": 0.04666002839803696,
+      "rank": 1
+    },
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R75km_Max",
+      "importance": 0.03965435177087784,
+      "rank": 2
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R75km_Std",
+      "importance": 0.026869505643844604,
+      "rank": 3
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R75km_Max",
+      "importance": 0.022956915199756622,
+      "rank": 4
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R75km_Mean",
+      "importance": 0.020832544192671776,
+      "rank": 5
+    },
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R75km_Std",
+      "importance": 0.015545925125479698,
+      "rank": 6
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R75km_Max",
+      "importance": 0.014454420655965805,
+      "rank": 7
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R75km_Max",
+      "importance": 0.013405950739979744,
+      "rank": 8
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R75km_Max",
+      "importance": 0.01238168217241764,
+      "rank": 9
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R75km_Std",
+      "importance": 0.011904844082891941,
+      "rank": 10
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Max_R75km_Mean",
+      "importance": 0.011592017486691475,
+      "rank": 11
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R75km_Mean",
+      "importance": 0.011107419617474079,
+      "rank": 12
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R75km_Min",
+      "importance": 0.01059336680918932,
+      "rank": 13
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R75km_Max",
+      "importance": 0.010311353951692581,
+      "rank": 14
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R75km_Mean",
+      "importance": 0.009125959128141403,
+      "rank": 15
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Mean_R75km_Mean",
+      "importance": 0.008842583745718002,
+      "rank": 16
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R75km_Std",
+      "importance": 0.008631274104118347,
+      "rank": 17
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R75km_Std",
+      "importance": 0.0077171348966658115,
+      "rank": 18
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R75km_Max",
+      "importance": 0.006544389296323061,
+      "rank": 19
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R75km_Mean",
+      "importance": 0.0061884429305791855,
+      "rank": 20
+    }
+  ],
+  "r100": [
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R100km_Mean",
+      "importance": 0.04654625058174133,
+      "rank": 1
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R100km_Max",
+      "importance": 0.034751053899526596,
+      "rank": 2
+    },
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R100km_Max",
+      "importance": 0.03294225409626961,
+      "rank": 3
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R100km_Max",
+      "importance": 0.029184933751821518,
+      "rank": 4
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R100km_Max",
+      "importance": 0.027889087796211243,
+      "rank": 5
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R100km_Mean",
+      "importance": 0.021127114072442055,
+      "rank": 6
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Max_R100km_Max",
+      "importance": 0.02013218216598034,
+      "rank": 7
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R100km_Mean",
+      "importance": 0.019544735550880432,
+      "rank": 8
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Mean_R100km_Max",
+      "importance": 0.017139993607997894,
+      "rank": 9
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Min_R100km_Std",
+      "importance": 0.0158177949488163,
+      "rank": 10
+    },
+    {
+      "feature": "Forecast_APCP_Max_6h_Window_24to48h_to_Guidance_FFG_06h_Ratio_R100km_Std",
+      "importance": 0.014236997812986374,
+      "rank": 11
+    },
+    {
+      "feature": "MLCAPE_24_30_36_42_48h_Min_R100km_Max",
+      "importance": 0.01285403873771429,
+      "rank": 12
+    },
+    {
+      "feature": "Forecast_APCP_to_Guidance_FFG_Ratio_24to48h_Across_6h12h24h_Mean_R100km_Std",
+      "importance": 0.01096789538860321,
+      "rank": 13
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R100km_Mean",
+      "importance": 0.010317155160009861,
+      "rank": 14
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R100km_Std",
+      "importance": 0.009353997185826302,
+      "rank": 15
+    },
+    {
+      "feature": "Guidance_FFG_1h3h6h12h24h_mm_Mean_R100km_Mean",
+      "importance": 0.00895707868039608,
+      "rank": 16
+    },
+    {
+      "feature": "SBCAPE_24_30_36_42_48h_Mean_R100km_Min",
+      "importance": 0.00846011284738779,
+      "rank": 17
+    },
+    {
+      "feature": "MLCIN_24_30_36_42_48h_Max_R100km_Mean",
+      "importance": 0.008271543309092522,
+      "rank": 18
+    },
+    {
+      "feature": "MLCIN_24_30_36_42_48h_Max_R100km_Min",
+      "importance": 0.007554323878139257,
+      "rank": 19
+    },
+    {
+      "feature": "MCS_Maintenance_Prob_RAPCalc_24_30_36_42_48h_Min_R100km_Max",
+      "importance": 0.006870018318295479,
+      "rank": 20
+    }
+  ]
+}

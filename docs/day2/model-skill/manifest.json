@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "forecast_day": 2,
+  "dataset_class": "formal-independent-test-set",
+  "test_period": "2024\u20132025",
+  "generated_utc": "2026-07-28T21:37:56Z",
+  "figures": [
+    {
+      "title": "Day-2 Practically Perfect ETS by threshold",
+      "metric": "ETS",
+      "target": "Practically Perfect: Any flood proxy",
+      "test_period": "2024\u20132025",
+      "test_case_count": 45,
+      "path": "model-skill/ets_practically_perfect.png"
+    },
+    {
+      "title": "Day-2 UFVS-expanded-40-km ETS",
+      "metric": "ETS",
+      "target": "UFVS Any flood proxy expanded 40 km",
+      "test_period": "2024\u20132025",
+      "test_case_count": 45,
+      "path": "model-skill/ets_ufvs_expanded40.png"
+    },
+    {
+      "title": "Day-2 Brier Score: including and excluding marginal",
+      "metric": "Brier Score",
+      "target": "Practically Perfect: Any flood proxy",
+      "test_period": "2024\u20132025",
+      "test_case_count": 45,
+      "evaluations": [
+        "Including Marginal",
+        "Excluding Marginal"
+      ],
+      "path": "model-skill/brier_including_excluding_marginal.png"
+    }
+  ]
+}

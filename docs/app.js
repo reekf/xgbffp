@@ -14,7 +14,7 @@ const CONTINUOUS_RISK_STOPS = [
   { threshold: 70, color: RISK_COLORS[70] },
   { threshold: 100, color: "#31004d" },
 ];
-const MAP_DATA_VERSION = "5";
+const MAP_DATA_VERSION = "6";
 
 const PRODUCT_META = {
   ml_r40: {
@@ -130,6 +130,7 @@ const METRIC_META = {
 const SIGNED_METRICS = new Set(["ets", "risk_occurrence_ets"]);
 
 const state = {
+  forecastDay: 1,
   archive: [],
   data: null,
   selected: "ml_r60v2",
@@ -202,6 +203,16 @@ const state = {
   tabTransitionTimer: null,
   viewTransition: null,
 };
+
+function horizonRoot() {
+  return state.forecastDay === 2 ? "day2/" : "";
+}
+
+function horizonAsset(path) {
+  if (!path) return path;
+  if (path.startsWith("day2/") || /^https?:/i.test(path)) return path;
+  return `${horizonRoot()}${path}`;
+}
 
 const map = L.map("map", {
   zoomControl: false,
@@ -805,6 +816,7 @@ function schedule3dRender() {
 function updateUrl(mode = "replace") {
   const parameters = new URLSearchParams();
   parameters.set("view", state.siteView);
+  parameters.set("day", String(state.forecastDay));
   if (state.data?.date) parameters.set("date", state.data.date);
   if (state.viewMode === "3d") parameters.set("map", "3d");
   const method = mode === "push" ? "pushState" : "replaceState";
@@ -1283,7 +1295,7 @@ function predictorColor(encodedValue) {
 }
 
 function mapPath(entry) {
-  return entry.map_href || `archive/${entry.date}/map.json`;
+  return entry.map_href || `${horizonRoot()}archive/${entry.date}/map.json`;
 }
 
 function showLoading(message = "Loading map data…") {
@@ -2371,8 +2383,11 @@ function buildLayerControls() {
 }
 
 function updateDateUI(entry) {
-  document.getElementById("valid-period").textContent = `Valid ${state.data.valid_period_label}`;
-  const staticHref = entry?.plot_href || `archive/${state.data.date}/latest.png`;
+  const issueLabel = state.forecastDay === 2 && (state.data.issue_date || entry?.issue_date)
+    ? ` · Issued ${state.data.issue_date || entry.issue_date}`
+    : "";
+  document.getElementById("valid-period").textContent = `Valid ${state.data.valid_period_label}${issueLabel}`;
+  const staticHref = entry?.plot_href || `${horizonRoot()}archive/${state.data.date}/latest.png`;
   document.getElementById("current-png-link").href = `${staticHref}?v=${encodeURIComponent(entry?.site_updated_utc || state.data.generated_utc)}`;
   const verificationLink = document.getElementById("current-verification-link");
   if (entry?.verification_available && entry.verification_plot_href) {
@@ -2445,11 +2460,11 @@ function populateDates() {
     const dateLabel = `${String(entry.date).slice(0, 4)}-${String(entry.date).slice(4, 6)}-${String(entry.date).slice(6, 8)}`;
     option.textContent = entry.mcs_eligible === false
       ? `${dateLabel} — Non-MCS-associated precipitation`
-      : dateLabel;
+      : (state.forecastDay === 2 && entry.issue_date ? `${dateLabel} valid · issued ${entry.issue_date}` : dateLabel);
     option.disabled = entry.map_available === false || entry.mcs_eligible === false;
     select.append(option);
   }
-  select.addEventListener("change", () => loadDate(select.value));
+  select.onchange = () => loadDate(select.value);
 }
 
 function populateArchive() {
@@ -2645,12 +2660,12 @@ function renderSkillDashboard() {
     const card = document.createElement("figure");
     card.className = "dashboard-figure";
     const image = document.createElement("img");
-    image.src = figure.path;
+    image.src = horizonAsset(figure.path);
     image.alt = figure.title;
     image.loading = "lazy";
     image.decoding = "async";
     const imageLink = document.createElement("a");
-    imageLink.href = figure.path;
+    imageLink.href = horizonAsset(figure.path);
     imageLink.target = "_blank";
     imageLink.rel = "noopener";
     imageLink.className = "full-resolution-image";
@@ -2665,7 +2680,7 @@ function renderSkillDashboard() {
         : "Frequency and spatial coverage are descriptive, not standalone skill.";
     detail.textContent = `${figure.target} · ${figure.test_period} · ${figure.test_case_count || "Unknown"} test days. ${direction}`;
     const fullResolution = document.createElement("a");
-    fullResolution.href = figure.path;
+    fullResolution.href = horizonAsset(figure.path);
     fullResolution.target = "_blank";
     fullResolution.rel = "noopener";
     fullResolution.textContent = "Open full-resolution figure";
@@ -2683,8 +2698,8 @@ async function loadSkillDashboard() {
   }
   try {
     const [manifestResponse, occurrenceResponse] = await Promise.all([
-      fetch("model-skill/manifest.json"),
-      fetch("model-skill/risk-occurrence.json"),
+      fetch(`${horizonRoot()}model-skill/manifest.json`),
+      fetch(`${horizonRoot()}model-skill/risk-occurrence.json`),
     ]);
     if (!manifestResponse.ok || !occurrenceResponse.ok) throw new Error("Model-skill assets unavailable");
     [state.skillManifest, state.riskOccurrence] = await Promise.all([
@@ -2715,7 +2730,7 @@ function renderRunningDashboard() {
   caseChart.replaceChildren();
   table.replaceChildren();
   summary.replaceChildren();
-  download.href = `verification/rolling/${windowName}.json`;
+  download.href = `${horizonRoot()}verification/rolling/${windowName}.json`;
   if (!windowData) {
     status.textContent = "No completed issued-forecast verification is available for this window.";
     warning.hidden = true;
@@ -2822,7 +2837,7 @@ async function loadRunningDashboard() {
   }
   try {
     const response = await fetch(
-      `verification/rolling/latest.json?v=${Date.now()}`,
+      `${horizonRoot()}verification/rolling/latest.json?v=${Date.now()}`,
       { cache: "no-store" },
     );
     if (!response.ok) throw new Error("Running verification unavailable");
@@ -2850,7 +2865,7 @@ function renderExplainabilityDashboard() {
   }
   const selected = figures[0];
   const image = document.getElementById("shap-image");
-  image.src = selected.path;
+  image.src = horizonAsset(selected.path);
   image.alt = selected.title;
   document.getElementById("shap-caption").textContent = `${selected.title} · independent ${selected.test_period} test set`;
   figure.hidden = false;
@@ -2865,7 +2880,7 @@ async function loadExplainabilityDashboard() {
     return;
   }
   try {
-    const response = await fetch("explainability/manifest.json");
+    const response = await fetch(`${horizonRoot()}explainability/manifest.json`);
     if (!response.ok) throw new Error("Explainability manifest unavailable");
     state.explainabilityManifest = await response.json();
     renderExplainabilityDashboard();
@@ -3148,34 +3163,60 @@ map.on("zoomend", () => {
 map.on("click", (event) => selectBriefingLocation(event.latlng.lat, event.latlng.lng));
 window.addEventListener("popstate", () => {
   const parameters = new URLSearchParams(location.search);
+  const requestedDay = Number(parameters.get("day")) === 2 ? 2 : 1;
+  if (requestedDay !== state.forecastDay) {
+    loadForecastHorizon(requestedDay, parameters.get("date"), false);
+  }
   const requestedView = parameters.get("view");
   setSiteView(requestedView === "3d" ? "forecast" : requestedView, false);
   const requestedMap = parameters.get("map") || (requestedView === "3d" ? "3d" : "2d");
   if (requestedMap !== state.viewMode) setViewMode(requestedMap);
 });
 
+async function loadForecastHorizon(day, requestedDate = null, updateHistory = true) {
+  const nextDay = Number(day) === 2 ? 2 : 1;
+  state.forecastDay = nextDay;
+  document.getElementById("forecast-day-select").value = String(nextDay);
+  state.skillManifest = null;
+  state.riskOccurrence = null;
+  state.runningVerification = null;
+  state.explainabilityManifest = null;
+  if (nextDay === 2) document.getElementById("shap-kind").value = "importance";
+
+  showLoading(`Loading Day ${nextDay} archive…`);
+  const response = await fetch(`${horizonRoot()}archive/index.json?v=${Date.now()}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Day ${nextDay} archive index unavailable`);
+  const archive = await response.json();
+  state.archive = Array.isArray(archive) ? archive : archive.entries || [];
+  populateDates();
+  populateArchive();
+  const initial = state.archive.find((entry) => String(entry.date) === String(requestedDate) && entry.map_available !== false && entry.mcs_eligible !== false)
+    || state.archive.find((entry) => entry.map_available !== false && entry.mcs_eligible !== false)
+    || state.archive[0];
+  if (initial) {
+    await loadDate(initial.date, true);
+  } else {
+    state.data = null;
+    renderFilledLayer();
+    renderContours();
+    document.getElementById("valid-period").textContent = `No archived Day ${nextDay} forecast yet`;
+    document.getElementById("product-message").textContent = `No Day ${nextDay} real-time forecast has passed the MCS issuance gate yet. Test-set verification and feature importance remain available.`;
+    hideLoading();
+  }
+  if (state.siteView === "skill") await loadSkillDashboard();
+  else if (state.siteView === "running") await loadRunningDashboard();
+  else if (state.siteView === "explainability") await loadExplainabilityDashboard();
+  if (updateHistory) updateUrl("push");
+}
+
 async function init() {
   setupDialogs();
   setupResponsiveControls();
   const initialParameters = new URLSearchParams(location.search);
-  const initialRequestedView = initialParameters.get("view");
-  if (initialRequestedView && initialRequestedView !== "forecast" && initialRequestedView !== "3d") {
-    setSiteView(initialRequestedView, false);
-  }
   try {
-    const response = await fetch(`archive/index.json?v=${Date.now()}`);
-    if (!response.ok) throw new Error("Archive index unavailable");
-    const archive = await response.json();
-    state.archive = Array.isArray(archive) ? archive : archive.entries || [];
-    populateDates();
-    populateArchive();
     const parameters = new URLSearchParams(location.search);
-    const requested = parameters.get("date");
-    const initial = state.archive.find((entry) => entry.date === requested && entry.map_available !== false)
-      || state.archive.find((entry) => entry.map_available !== false)
-      || state.archive[0];
-    if (!initial) throw new Error("No forecasts are available");
-    await loadDate(initial.date, true);
+    const requestedDay = Number(parameters.get("day")) === 2 ? 2 : 1;
+    await loadForecastHorizon(requestedDay, parameters.get("date"), false);
     const requestedView = parameters.get("view");
     const requestedMap = parameters.get("map") || (requestedView === "3d" ? "3d" : "2d");
     if (requestedMap === "3d") setViewMode("3d");
@@ -3190,5 +3231,15 @@ async function init() {
     console.error(error);
   }
 }
+
+document.getElementById("forecast-day-select").addEventListener("change", async (event) => {
+  try {
+    await loadForecastHorizon(Number(event.currentTarget.value), null, true);
+  } catch (error) {
+    document.getElementById("product-message").textContent = `Day ${event.currentTarget.value} forecast data are not available yet.`;
+    hideLoading();
+    console.error(error);
+  }
+});
 
 init();

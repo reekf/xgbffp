@@ -1655,7 +1655,14 @@ def filter_iem_wpc_ero_to_case_valid_window(gdf, date: str):
     return gdf
 
 
-def download_iem_wpc_ero_gdf(date: str, rp: RuntimePaths, force: bool = False):
+def download_iem_wpc_ero_gdf(
+    date: str,
+    rp: RuntimePaths,
+    force: bool = False,
+    outlook_day: int = 1,
+    issuance_date: str | None = None,
+):
+    """Fetch the outlook valid for ``date`` without conflating issue and valid dates."""
     try:
         import requests
         import geopandas as gpd
@@ -1663,18 +1670,25 @@ def download_iem_wpc_ero_gdf(date: str, rp: RuntimePaths, force: bool = False):
         log(f"WPC ERO fetch skipped: requests/geopandas unavailable ({exc}).")
         return None
     d = date8(date)
-    start_dt = datetime.strptime(d, "%Y%m%d")
-    target_start = pd.Timestamp(start_dt, tz="UTC") + pd.Timedelta(hours=12)
+    day = int(outlook_day)
+    if day not in (1, 2):
+        raise ValueError(f"Only WPC ERO Day 1 or Day 2 is supported, got {day}")
+    issue_d = date8(issuance_date) if issuance_date is not None else (
+        (datetime.strptime(d, "%Y%m%d") - timedelta(days=day - 1)).strftime("%Y%m%d")
+    )
+    target_dt = datetime.strptime(d, "%Y%m%d")
+    issue_dt = datetime.strptime(issue_d, "%Y%m%d")
+    target_start = pd.Timestamp(target_dt, tz="UTC") + pd.Timedelta(hours=12)
     target_end = target_start + pd.Timedelta(days=1)
-    sts = (start_dt - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%MZ")
-    ets = (start_dt + timedelta(days=1, hours=18)).strftime("%Y-%m-%dT%H:%MZ")
-    cache_base = rp.wpc_cache_dir / f"iem_wpc_ero_day1_{d}_valid12to12"
+    sts = (issue_dt - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%MZ")
+    ets = (issue_dt + timedelta(days=1, hours=18)).strftime("%Y-%m-%dT%H:%MZ")
+    cache_base = rp.wpc_cache_dir / f"iem_wpc_ero_day{day}_issue{issue_d}_valid{d}_12to12"
     geom_candidates = ["cookie", "cutter", "nonoverlap", None, "layers", "layer", "1", "0"]
     last_error = None
     for geom in geom_candidates:
         suffix = "default" if geom is None else str(geom)
         zip_path = cache_base.with_name(cache_base.name + f"_{suffix}.zip")
-        params = {"type": "E", "d": "1", "sts": sts, "ets": ets}
+        params = {"type": "E", "d": str(day), "sts": sts, "ets": ets}
         if geom is not None:
             params["geom"] = geom
         try:
@@ -1702,9 +1716,9 @@ def download_iem_wpc_ero_gdf(date: str, rp: RuntimePaths, force: bool = False):
                 gdf = gdf[gdf[c].astype(str).str.upper().str.contains("E", na=False)].copy()
             if "DAY" in cols_upper:
                 c = cols_upper["DAY"]
-                gdf = gdf[pd.to_numeric(gdf[c], errors="coerce").fillna(-999).astype(int) == 1].copy()
+                gdf = gdf[pd.to_numeric(gdf[c], errors="coerce").fillna(-999).astype(int) == day].copy()
             if gdf.empty:
-                last_error = f"no day-1 WPC ERO rows after filtering for geom={geom}"
+                last_error = f"no day-{day} WPC ERO rows after filtering for geom={geom}"
                 continue
             gdf = filter_iem_wpc_ero_to_case_valid_window(gdf, d)
             if gdf is None or gdf.empty:
@@ -1720,7 +1734,9 @@ def download_iem_wpc_ero_gdf(date: str, rp: RuntimePaths, force: bool = False):
             if gdf.empty:
                 last_error = f"WPC polygons existed but no recognized risk categories for geom={geom}"
                 continue
-            log(f"Loaded {len(gdf)} valid-window WPC ERO polygons from IEM for {d}")
+            gdf.attrs["wpc_outlook_day"] = day
+            gdf.attrs["wpc_issue_date"] = issue_d
+            log(f"Loaded {len(gdf)} WPC ERO Day {day} polygons; issue={issue_d} valid={d}")
             return gdf
         except Exception as exc:
             last_error = repr(exc)
@@ -1769,10 +1785,21 @@ def rasterize_wpc_gdf_to_grid(gdf, df_grid: pd.DataFrame) -> np.ndarray:
     return out
 
 
-def add_wpc_ero_to_realtime_from_iem(df: pd.DataFrame, date: str, rp: RuntimePaths, force_wpc: bool = False) -> pd.DataFrame:
+def add_wpc_ero_to_realtime_from_iem(
+    df: pd.DataFrame,
+    date: str,
+    rp: RuntimePaths,
+    force_wpc: bool = False,
+    outlook_day: int = 1,
+    issuance_date: str | None = None,
+) -> pd.DataFrame:
     out = df.copy()
     d = date8(date)
-    wpc_cache = rp.wpc_cache_dir / f"wpc_ero_risk_grid_{d}_valid12to12_{len(out)}rows.parquet"
+    day = int(outlook_day)
+    issue_d = date8(issuance_date) if issuance_date is not None else (
+        (datetime.strptime(d, "%Y%m%d") - timedelta(days=day - 1)).strftime("%Y%m%d")
+    )
+    wpc_cache = rp.wpc_cache_dir / f"wpc_ero_day{day}_issue{issue_d}_valid{d}_12to12_{len(out)}rows.parquet"
     if wpc_cache.exists() and wpc_cache.stat().st_size > 1024 and not force_wpc:
         tmp = pd.read_parquet(wpc_cache)
         if WPC_COL in tmp.columns and len(tmp) == len(out):
@@ -1782,7 +1809,13 @@ def add_wpc_ero_to_realtime_from_iem(df: pd.DataFrame, date: str, rp: RuntimePat
                     out[meta_col] = tmp[meta_col].astype(str).iloc[0]
             log(f"Loaded cached WPC ERO grid: {wpc_cache}")
             return out
-    gdf = download_iem_wpc_ero_gdf(d, rp=rp, force=force_wpc)
+    gdf = download_iem_wpc_ero_gdf(
+        d,
+        rp=rp,
+        force=force_wpc,
+        outlook_day=day,
+        issuance_date=issue_d,
+    )
     if gdf is None or len(gdf) == 0:
         log(f"WPC ERO unavailable for {d}; continuing without WPC panel.")
         return out
@@ -1792,7 +1825,9 @@ def add_wpc_ero_to_realtime_from_iem(df: pd.DataFrame, date: str, rp: RuntimePat
     out["WPC_ERO_Selected_Valid_Start"] = str(gdf.attrs.get("wpc_selected_valid_start", ""))
     out["WPC_ERO_Selected_Valid_End"] = str(gdf.attrs.get("wpc_selected_valid_end", ""))
     out["WPC_ERO_Product_Issuance"] = str(gdf.attrs.get("wpc_selected_prodiss", ""))
-    out[["Date", "Lat", "Lon", WPC_COL, "WPC_ERO_Target_Valid_Start", "WPC_ERO_Target_Valid_End", "WPC_ERO_Selected_Valid_Start", "WPC_ERO_Selected_Valid_End", "WPC_ERO_Product_Issuance"]].to_parquet(wpc_cache, index=False)
+    out["WPC_ERO_Outlook_Day"] = day
+    out["Forecast_Issue_Date"] = issue_d
+    out[["Date", "Lat", "Lon", WPC_COL, "WPC_ERO_Target_Valid_Start", "WPC_ERO_Target_Valid_End", "WPC_ERO_Selected_Valid_Start", "WPC_ERO_Selected_Valid_End", "WPC_ERO_Product_Issuance", "WPC_ERO_Outlook_Day", "Forecast_Issue_Date"]].to_parquet(wpc_cache, index=False)
     log(f"Saved WPC ERO raster cache: {wpc_cache}")
     log(f"WPC risk pixels: >5%={(out[WPC_COL] >= 0.05).sum():,}, >15%={(out[WPC_COL] >= 0.15).sum():,}, >40%={(out[WPC_COL] >= 0.40).sum():,}, >70%={(out[WPC_COL] >= 0.70).sum():,}")
     return out

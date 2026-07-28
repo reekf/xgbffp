@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "forecast_day": 2,
+  "dataset_class": "formal-independent-test-set",
+  "test_period": "2024\u20132025",
+  "verification_target": "Practically Perfect: Any flood proxy",
+  "count_unit": "forecast-day risk-occurrence contingency counts across 45 test cases",
+  "generated_utc": "2026-07-28T21:37:56Z",
+  "products": {
+    "ML r40": {
+      "5": {
+        "threshold_label": "\u22655%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "15": {
+        "threshold_label": "\u226515%",
+        "hit_day_count": 43,
+        "miss_day_count": 2,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 43,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 0.9555555555555556,
+        "ets": 0.0
+      },
+      "40": {
+        "threshold_label": "\u226540%",
+        "hit_day_count": 5,
+        "miss_day_count": 31,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 9,
+        "forecast_risk_day_count": 5,
+        "pp_risk_day_count": 36,
+        "verified_day_count": 45,
+        "csi": 0.1388888888888889,
+        "ets": 0.03125
+      },
+      "70": {
+        "threshold_label": "\u226570%",
+        "hit_day_count": 0,
+        "miss_day_count": 9,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 36,
+        "forecast_risk_day_count": 0,
+        "pp_risk_day_count": 9,
+        "verified_day_count": 45,
+        "csi": 0.0,
+        "ets": 0.0
+      }
+    },
+    "ML r60": {
+      "5": {
+        "threshold_label": "\u22655%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "15": {
+        "threshold_label": "\u226515%",
+        "hit_day_count": 44,
+        "miss_day_count": 1,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 44,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 0.9777777777777777,
+        "ets": 0.0
+      },
+      "40": {
+        "threshold_label": "\u226540%",
+        "hit_day_count": 23,
+        "miss_day_count": 13,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 9,
+        "forecast_risk_day_count": 23,
+        "pp_risk_day_count": 36,
+        "verified_day_count": 45,
+        "csi": 0.6388888888888888,
+        "ets": 0.2613636363636364
+      },
+      "70": {
+        "threshold_label": "\u226570%",
+        "hit_day_count": 0,
+        "miss_day_count": 9,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 36,
+        "forecast_risk_day_count": 0,
+        "pp_risk_day_count": 9,
+        "verified_day_count": 45,
+        "csi": 0.0,
+        "ets": 0.0
+      }
+    },
+    "ML r75": {
+      "5": {
+        "threshold_label": "\u22655%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "15": {
+        "threshold_label": "\u226515%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "40": {
+        "threshold_label": "\u226540%",
+        "hit_day_count": 31,
+        "miss_day_count": 5,
+        "false_alarm_day_count": 2,
+        "correct_negative_day_count": 7,
+        "forecast_risk_day_count": 33,
+        "pp_risk_day_count": 36,
+        "verified_day_count": 45,
+        "csi": 0.8157894736842105,
+        "ets": 0.3965517241379311
+      },
+      "70": {
+        "threshold_label": "\u226570%",
+        "hit_day_count": 0,
+        "miss_day_count": 9,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 36,
+        "forecast_risk_day_count": 0,
+        "pp_risk_day_count": 9,
+        "verified_day_count": 45,
+        "csi": 0.0,
+        "ets": 0.0
+      }
+    },
+    "ML r100": {
+      "5": {
+        "threshold_label": "\u22655%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "15": {
+        "threshold_label": "\u226515%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "40": {
+        "threshold_label": "\u226540%",
+        "hit_day_count": 34,
+        "miss_day_count": 2,
+        "false_alarm_day_count": 8,
+        "correct_negative_day_count": 1,
+        "forecast_risk_day_count": 42,
+        "pp_risk_day_count": 36,
+        "verified_day_count": 45,
+        "csi": 0.7727272727272727,
+        "ets": 0.03846153846153833
+      },
+      "70": {
+        "threshold_label": "\u226570%",
+        "hit_day_count": 2,
+        "miss_day_count": 7,
+        "false_alarm_day_count": 9,
+        "correct_negative_day_count": 27,
+        "forecast_risk_day_count": 11,
+        "pp_risk_day_count": 9,
+        "verified_day_count": 45,
+        "csi": 0.1111111111111111,
+        "ets": -0.012658227848101276
+      }
+    },
+    "ML ensemble mean": {
+      "5": {
+        "threshold_label": "\u22655%",
+        "hit_day_count": 45,
+        "miss_day_count": 0,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 45,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 1.0,
+        "ets": 1.0
+      },
+      "15": {
+        "threshold_label": "\u226515%",
+        "hit_day_count": 44,
+        "miss_day_count": 1,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 44,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 0.9777777777777777,
+        "ets": 0.0
+      },
+      "40": {
+        "threshold_label": "\u226540%",
+        "hit_day_count": 23,
+        "miss_day_count": 13,
+        "false_alarm_day_count": 1,
+        "correct_negative_day_count": 8,
+        "forecast_risk_day_count": 24,
+        "pp_risk_day_count": 36,
+        "verified_day_count": 45,
+        "csi": 0.6216216216216216,
+        "ets": 0.21348314606741575
+      },
+      "70": {
+        "threshold_label": "\u226570%",
+        "hit_day_count": 0,
+        "miss_day_count": 9,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 36,
+        "forecast_risk_day_count": 0,
+        "pp_risk_day_count": 9,
+        "verified_day_count": 45,
+        "csi": 0.0,
+        "ets": 0.0
+      }
+    },
+    "WPC Day 2": {
+      "5": {
+        "threshold_label": "\u22655%",
+        "hit_day_count": 42,
+        "miss_day_count": 3,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 42,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 0.9333333333333333,
+        "ets": 0.0
+      },
+      "15": {
+        "threshold_label": "\u226515%",
+        "hit_day_count": 32,
+        "miss_day_count": 13,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 0,
+        "forecast_risk_day_count": 32,
+        "pp_risk_day_count": 45,
+        "verified_day_count": 45,
+        "csi": 0.7111111111111111,
+        "ets": 0.0
+      },
+      "40": {
+        "threshold_label": "\u226540%",
+        "hit_day_count": 5,
+        "miss_day_count": 31,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 9,
+        "forecast_risk_day_count": 5,
+        "pp_risk_day_count": 36,
+        "verified_day_count": 45,
+        "csi": 0.1388888888888889,
+        "ets": 0.03125
+      },
+      "70": {
+        "threshold_label": "\u226570%",
+        "hit_day_count": 0,
+        "miss_day_count": 9,
+        "false_alarm_day_count": 0,
+        "correct_negative_day_count": 36,
+        "forecast_risk_day_count": 0,
+        "pp_risk_day_count": 9,
+        "verified_day_count": 45,
+        "csi": 0.0,
+        "ets": 0.0
+      }
+    }
+  }
+}

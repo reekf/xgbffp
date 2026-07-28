@@ -83,7 +83,7 @@ button { cursor: pointer; }
   right: 0;
   min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(285px, auto) minmax(340px, 1fr) auto minmax(260px, auto);
+  grid-template-columns: minmax(260px, auto) minmax(330px, 1fr) auto auto minmax(250px, auto);
   align-items: center;
   gap: 18px;
   padding: 10px 16px;
@@ -194,6 +194,20 @@ button { cursor: pointer; }
   min-height: 36px;
   padding: 0 30px 0 10px;
   border-radius: 3px;
+}
+
+.horizon-control {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.horizon-control select {
+  min-height: 36px;
+  padding: 0 30px 0 10px;
+  text-transform: none;
 }
 
 #valid-period {
@@ -1362,7 +1376,7 @@ noscript {
 }
 
 @media (min-width: 901px) and (max-width: 1200px) {
-  .topbar { grid-template-columns: minmax(220px, auto) 1fr auto; }
+  .topbar { grid-template-columns: minmax(220px, auto) 1fr auto auto; }
   .date-controls { display: none; }
 }
 
@@ -1398,6 +1412,15 @@ noscript {
     border-bottom: 1px solid var(--line);
   }
   .date-controls label { display: none; }
+  .horizon-control {
+    position: fixed;
+    z-index: 1002;
+    top: 66px;
+    right: 8px;
+    display: block;
+  }
+  .horizon-control span { display: none; }
+  .horizon-control select { min-height: 36px; }
   #valid-period { font-size: 0.66rem; }
   .top-actions > :not(.mobile-actions-toggle) { display: none; }
   .top-actions .mobile-actions-toggle { display: inline-grid; }
@@ -1503,8 +1526,8 @@ noscript {
     display: none;
   }
   .dashboard { inset: 149px 0 0; padding: 22px 14px 55px; }
-  .dashboard-active .product-nav { top: 62px; }
-  .dashboard-active .dashboard { inset: 104px 0 0; }
+  .dashboard-active .product-nav { top: 107px; }
+  .dashboard-active .dashboard { inset: 149px 0 0; }
   .location-briefing {
     top: auto;
     right: 8px;
