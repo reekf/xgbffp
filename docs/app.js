@@ -14,7 +14,7 @@ const CONTINUOUS_RISK_STOPS = [
   { threshold: 70, color: RISK_COLORS[70] },
   { threshold: 100, color: "#31004d" },
 ];
-const MAP_DATA_VERSION = "6";
+const MAP_DATA_VERSION = "7";
 
 const PRODUCT_META = {
   ml_r40: {
@@ -30,13 +30,6 @@ const PRODUCT_META = {
     note: "60-km radius ML forecasts were the most balanced overall in the test-set analysis.",
     detail: "Predicts rainfall exceeding Flash Flood Guidance within 60 km. This configuration provided the best balance between missed events and overly broad or severe risk areas in the test set.",
     dash: "8 4",
-  },
-  ml_r60v2: {
-    short: "ML r60kmV2 (Beta)",
-    title: "60-km V2 beta/testing ML",
-    note: "r60kmV2 is a beta/testing configuration that can issue risk too often, while its risk-area placement remains useful for evaluation.",
-    detail: "Uses the same 60-km forecast-predictor neighborhoods as the regular r60 model, but its binary loss penalizes low probabilities more strongly where many MRMS-over-FFG grid points or multiple flood/flash-flood reports occurred within 60 km. This cost-sensitive testing member can over-issue risk and its raw probabilities may be less frequency-calibrated than an unweighted model.",
-    dash: "14 4 2 4",
   },
   ml_r75: {
     short: "ML r75 (47 mi)",
@@ -56,7 +49,7 @@ const PRODUCT_META = {
     short: "ML Ensemble Mean",
     title: "ML Ensemble Mean",
     note: "The ensemble mean provides a single consensus forecast from the available ML radius configurations.",
-    detail: "Averages the available r40, r60, r60kmV2, r75, and r100 probabilities independently at each grid point. Unlike probability matching, it does not redistribute values or preserve pooled extremes.",
+    detail: "Averages the available r40, r60, r75, and r100 probabilities independently at each grid point. Unlike probability matching, it does not redistribute values or preserve pooled extremes.",
     dash: "10 3 2 3",
   },
   wpc: {
@@ -75,7 +68,7 @@ const PRODUCT_META = {
   },
 };
 
-const PRODUCT_ORDER = ["ml_r40", "ml_r60", "ml_r60v2", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"];
+const PRODUCT_ORDER = ["ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"];
 const THRESHOLDS = [5, 15, 40, 70];
 const OBSERVATION_META = {
   stage4_ffg: { label: "Stage IV > FFG", color: "#00e5ff" },
@@ -133,7 +126,7 @@ const state = {
   forecastDay: 1,
   archive: [],
   data: null,
-  selected: "ml_r60v2",
+  selected: "ml_r60",
   contours: new Set(),
   observations: new Set(),
   fillOpacity: 1,
@@ -1034,7 +1027,7 @@ function reportContext(latitude, longitude) {
 }
 
 function productProbabilityRows(index) {
-  const keys = ["ml_r40", "ml_r60", "ml_r60v2", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"];
+  const keys = ["ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"];
   return keys.map((key) => {
     const probability = window.XGBFFPBriefing.probabilityPercent(state.data?.layers?.[key], index);
     return {
@@ -1140,7 +1133,7 @@ function renderLocationBriefing() {
   }
   const agreementRule = document.createElement("p");
   agreementRule.className = "briefing-note";
-  agreementRule.textContent = "High: all four members share a category and span ≤10 points. Moderate: adjacent categories or span ≤20 points. Otherwise Low. r60kmV2 is excluded.";
+  agreementRule.textContent = "High: all four members share a category and span ≤10 points. Moderate: adjacent categories or span ≤20 points. Otherwise Low.";
   agreementSection.append(agreementHeading, agreementList, agreementRule);
   content.append(agreementSection);
 
@@ -1768,7 +1761,6 @@ function setMessage(key) {
   const radius = { ml_r40: "40 km (25 mi)", ml_r60: "60 km (37 mi)", ml_r75: "75 km (47 mi)", ml_r100: "100 km (62 mi)" }[key];
   let prediction = "";
   if (radius) prediction = ` It predicts the probability that observed rainfall will exceed Flash Flood Guidance within ${radius} of a point.`;
-  if (key === "ml_r60v2") prediction = " It predicts the cost-sensitive probability of the 40-km-expanded MRMS-over-FFG or flood/flash-flood-report union, with stronger loss penalties for dense proxy clusters within 60 km.";
   if (key === "ml_mean") prediction = " It averages the available ML radius configurations at each grid point.";
   if (key === "wpc") prediction = " It predicts the probability of rainfall exceeding Flash Flood Guidance within 40 km (25 mi) of a point.";
   if (key === "pp") prediction = " It shows an observation-based, idealized placement of risk after the valid period—not a forecast.";
@@ -2413,11 +2405,9 @@ async function loadDate(date, fit = false) {
     state.data = await response.json();
     state.surface3dCache.clear();
     if (!state.data.layers[state.selected]) {
-      state.selected = state.data.layers.ml_r60v2
-        ? "ml_r60v2"
-        : state.data.layers.ml_r60
-          ? "ml_r60"
-          : Object.keys(state.data.layers)[0];
+      state.selected = state.data.layers.ml_r60
+        ? "ml_r60"
+        : Object.keys(state.data.layers)[0];
     }
     state.contours = new Set([...state.contours].filter((key) => state.data.layers[key]));
     state.observations = new Set([...state.observations].filter((key) => state.data.observations?.[key]));
@@ -2535,10 +2525,6 @@ function metricValueText(value) {
     : "Not available";
 }
 
-function dashboardProductLabel(label) {
-  return label === "ML r60kmV2" ? "ML r60kmV2 (Beta)" : label;
-}
-
 function bestRowsForMetric(rows, metric) {
   const meta = METRIC_META[metric] || { optimum: "max" };
   const candidates = rows.map((row) => {
@@ -2569,7 +2555,7 @@ function renderSkillOccurrence() {
   const metric = document.getElementById("skill-occurrence-metric").value;
   const products = state.riskOccurrence?.products || {};
   const rows = Object.entries(products)
-    .map(([label, values]) => ({ label: dashboardProductLabel(label), ...(values[threshold] || {}) }))
+    .map(([label, values]) => ({ label, ...(values[threshold] || {}) }))
     .filter((row) => Number.isInteger(row.hit_day_count)
       && Number.isInteger(row.miss_day_count)
       && Number.isInteger(row.false_alarm_day_count)

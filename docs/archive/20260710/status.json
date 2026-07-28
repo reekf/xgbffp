@@ -32,7 +32,7 @@
   "mcs_classification_label": "MCS-associated precipitation",
   "mcs_eligible": true,
   "plot_available": true,
-  "product_description": "Machine-learning radius products including density-weighted r60kmV2, ensemble mean, and WPC ERO.",
+  "product_description": "Machine-learning radius products, ensemble mean, WPC ERO, and available post-event verification.",
   "published": true,
   "site_updated_utc": "2026-07-13T04:53:09Z",
   "valid_end_utc": "2026-07-11T12:00:00Z",

@@ -32,10 +32,8 @@ The Forecast view supports `date=YYYYMMDD` and `map=3d`.
 ## Forecast products
 
 The website reads the available fields in each archive instead of assuming all
-dates have the newest schema. Products can include r40, r60, r60kmV2, r75,
-r100, the ML ensemble mean, WPC ERO, and post-event Practically Perfect.
-r60kmV2 is an experimental variant and is not included in the standard
-four-member agreement statistic.
+dates have the newest schema. Products can include r40, r60, r75, r100, the
+ML ensemble mean, WPC ERO, and post-event Practically Perfect.
 
 ## Location Briefing
 

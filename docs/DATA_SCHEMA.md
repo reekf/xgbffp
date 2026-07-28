@@ -32,8 +32,8 @@ Every layer/predictor value array aligns by index with `grid.lat` and
 `scale_min` and `scale_max`; metadata includes units, global SHAP rank, and
 direction. They are raw predictor diagnostics, not local SHAP values.
 
-Older archives can omit r60kmV2, ensemble mean, PP, predictors, or
-observations. The consumer detects availability per date.
+Older archives can omit ensemble mean, PP, predictors, or observations. The
+consumer detects availability per date.
 
 ## Skill manifest — schema version 1
 

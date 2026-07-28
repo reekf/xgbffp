@@ -61,7 +61,7 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 payload = json.loads(path.read_text())
-required = {"ml_r40", "ml_r60", "ml_r60v2", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"}
+required = {"ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"}
 missing = sorted(required.difference(payload.get("layers", {})))
 if payload.get("schema_version") != 5 or missing:
     raise SystemExit(

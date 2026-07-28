@@ -83,7 +83,7 @@ status = {
     "valid_period_label": f"{start:%Y-%m-%d} 12Z to {end:%Y-%m-%d} 12Z",
     "latest_plot": "latest.png" if plot_available else None,
     "site_updated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "product_description": "Machine-learning radius products including r60kmV2, ensemble mean, and WPC ERO.",
+    "product_description": "Machine-learning radius products, ensemble mean, and WPC ERO.",
 }
 if message:
     status["message"] = message
@@ -139,7 +139,7 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 payload = json.loads(path.read_text())
-required = {"ml_r40", "ml_r60", "ml_r60v2", "ml_r75", "ml_r100", "ml_mean", "wpc"}
+required = {"ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc"}
 missing = sorted(required.difference(payload.get("layers", {})))
 if payload.get("schema_version") != 5 or missing:
     raise SystemExit(

@@ -5,7 +5,7 @@
   "map_data": "map.json",
   "map_updated_utc": "2026-07-13T04:49:46Z",
   "plot_available": true,
-  "product_description": "Machine-learning radius products including density-weighted r60kmV2, ensemble mean, WPC ERO, and Practically Perfect verification.",
+  "product_description": "Machine-learning radius products, ensemble mean, WPC ERO, and available post-event verification.",
   "published": true,
   "site_updated_utc": "2026-07-13T04:49:46Z",
   "valid_end_utc": "2025-06-30T12:00:00Z",

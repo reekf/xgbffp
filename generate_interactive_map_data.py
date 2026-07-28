@@ -29,11 +29,9 @@ HISTORICAL_PREDICTIONS = PROJECT_DIR / "v33_singletarget_radius_sensitivity_view
 OBSERVATION_DIR = PROJECT_DIR / "v33_realtime_radiusstats_forecasts" / "ufvs_raw"
 REALTIME_FEATURE_DIR = PROJECT_DIR / "v33_realtime_radiusstats_forecasts" / "features"
 RADII = (40, 60, 75, 100)
-R60KM_V2_PREDICTION = HISTORICAL_PREDICTIONS / "v33_singletarget_radius_sensitivity_predictions_r60kmV2_expanded40union.parquet"
 MODEL_MEMBER_COLUMNS = (
     "ML_r40_Prob",
     "ML_r60_Prob",
-    "ML_r60kmV2_Prob",
     "ML_r75_Prob",
     "ML_r100_Prob",
 )
@@ -78,7 +76,6 @@ OBSERVATION_SPECS = {
 LAYER_SPECS = {
     "ml_r40": ("ML r40 km", "ML_r40_Prob", "forecast"),
     "ml_r60": ("ML r60 km", "ML_r60_Prob", "forecast"),
-    "ml_r60v2": ("ML r60kmV2 density-weighted", "ML_r60kmV2_Prob", "forecast"),
     "ml_r75": ("ML r75 km", "ML_r75_Prob", "forecast"),
     "ml_r100": ("ML r100 km", "ML_r100_Prob", "forecast"),
     "ml_mean": ("ML Ensemble Mean", "ML_Ensemble_Mean", "forecast"),
@@ -138,22 +135,12 @@ def load_historical(date: str) -> pd.DataFrame:
         pred = _read_date(path, date, ["Date", "Lat", "Lon", "ML_Forecast_Prob"])
         pred = pred.rename(columns={"ML_Forecast_Prob": f"ML_r{radius}_Prob"})
         base = _merge_aligned(base, pred, [f"ML_r{radius}_Prob"])
-    r60v2 = _read_date(
-        R60KM_V2_PREDICTION,
-        date,
-        ["Date", "Lat", "Lon", "ML_Forecast_Prob"],
-    ).rename(columns={"ML_Forecast_Prob": "ML_r60kmV2_Prob"})
-    if r60v2.empty:
-        raise RuntimeError(f"No historical r60kmV2 prediction rows for {date}")
-    base = _merge_aligned(base, r60v2, ["ML_r60kmV2_Prob"])
     return base
 
 
 def _preferred_realtime_forecast(date: str) -> Path:
     # Verification output is a superset of the day-zero forecast: it carries
-    # the same member probabilities (including label-aware variants such as
-    # r60kmV2) plus the PP fields.  Prefer it when present so a verification
-    # publish cannot fall back to an older pre-V2 multi-radius cache.
+    # the same member probabilities plus the PP fields. Prefer it when present.
     verification = _realtime_verification(date)
     if verification is not None:
         return verification

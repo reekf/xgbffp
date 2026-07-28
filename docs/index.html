@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" crossorigin="">
-  <link rel="stylesheet" href="style.css?v=20260728-day2-2">
+  <link rel="stylesheet" href="style.css?v=20260728-member-removal-1">
 </head>
 <body>
   <div id="map" aria-label="Interactive ML flash-flood probability map"></div>
@@ -401,7 +401,7 @@
       <div class="about-grid">
         <section class="dashboard-card">
           <h3>Forecast guidance</h3>
-          <p>The map displays 40-, 60-, 75-, and 100-km neighborhood configurations, a beta/testing 60-km V2 member, an ensemble mean, and the official WPC ERO reference.</p>
+          <p>The map displays 40-, 60-, 75-, and 100-km neighborhood configurations, an ensemble mean, and the official WPC ERO reference.</p>
         </section>
         <section class="dashboard-card">
           <h3>Three evaluation populations</h3>
@@ -583,7 +583,7 @@
       <p>Practically Perfect is an observation-based benchmark created after the valid period from observed flood-proxy locations. Those observations are expanded and smoothed to show an idealized placement of risk areas. It is not a forecast. It is typically available around 11:10 AM CT the following day.</p>
 
       <h2>Using the map</h2>
-      <p>Select one filled product and add contour overlays from any other available forecast or verification layer. The r60kmV2 member uses the same 60-km forecast neighborhoods as r60 but applies density-weighted training loss to emphasize clustered MRMS-over-FFG exceedances and flood reports. Switch between the standard 2D map and a fixed-angle 3D view where greater height represents greater probability. In 3D, ML and Practically Perfect use their continuous probabilities; WPC categorical areas are displayed as continuous surfaces within their official probability ranges. Verified dates also provide toggles for the flood-proxy observations used to construct Practically Perfect. NWS local storm reports are supplied by the Iowa Environmental Mesonet; reports for flooding, flash flooding, and selected rainfall totals are preliminary and update every five minutes for the latest forecast. The mPING layer is temporarily disabled while its data feed is repaired. Use the Archive button to change dates or open the original static graphics.</p>
+      <p>Select one filled product and add contour overlays from any other available forecast or verification layer. Switch between the standard 2D map and a fixed-angle 3D view where greater height represents greater probability. In 3D, ML and Practically Perfect use their continuous probabilities; WPC categorical areas are displayed as continuous surfaces within their official probability ranges. Verified dates also provide toggles for the flood-proxy observations used to construct Practically Perfect. NWS local storm reports are supplied by the Iowa Environmental Mesonet; reports for flooding, flash flooding, and selected rainfall totals are preliminary and update every five minutes for the latest forecast. The mPING layer is temporarily disabled while its data feed is repaired. Use the Archive button to change dates or open the original static graphics.</p>
 
       <button class="primary-button dialog-close" type="button">Enter map</button>
     </div>
@@ -621,6 +621,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" crossorigin=""></script>
   <script src="https://unpkg.com/deck.gl@9.1.14/dist.min.js" crossorigin=""></script>
   <script src="briefing.js?v=20260719-xgbffp-1"></script>
-  <script src="app.js?v=20260728-day2-2"></script>
+  <script src="app.js?v=20260728-member-removal-1"></script>
 </body>
 </html>

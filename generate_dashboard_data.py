@@ -30,7 +30,6 @@ THRESHOLD_LABELS = {
 PRODUCTS = (
     "ml_r40",
     "ml_r60",
-    "ml_r60v2",
     "ml_r75",
     "ml_r100",
     "ml_mean",
@@ -40,7 +39,6 @@ DAY2_PRODUCTS = ("ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc")
 PRODUCT_LABELS = {
     "ml_r40": "ML r40",
     "ml_r60": "ML r60",
-    "ml_r60v2": "ML r60kmV2",
     "ml_r75": "ML r75",
     "ml_r100": "ML r100",
     "ml_mean": "ML ensemble mean",
@@ -411,6 +409,7 @@ def aggregate_window(
     definition: str,
     window_name: str,
     product_keys: tuple[str, ...] = PRODUCTS,
+    forecast_day: int = 1,
 ) -> dict:
     references = {}
     available_references = [
@@ -428,7 +427,7 @@ def aggregate_window(
     return {
         "schema_version": 4,
         "dataset_class": "realtime-issued-verification",
-        "forecast_day": int(records[0].get("forecast_day", 1)) if records else 1,
+        "forecast_day": int(records[0].get("forecast_day", forecast_day)) if records else int(forecast_day),
         "verification_target": REFERENCE_META[DEFAULT_REFERENCE]["label"],
         "default_reference": DEFAULT_REFERENCE,
         "references": references,
@@ -538,13 +537,19 @@ def publish_risk_occurrence(project_dir: Path, docs_dir: Path, generated: str) -
     source = project_dir / "paper_verification_bs_ets_final/ets_pp_any_flood_proxy_metrics.csv"
     if not source.is_file():
         raise FileNotFoundError(source)
-    excluded_sources = {"ML Local PMM 100km", "ML Ensemble Max", "ML r100kmV2"}
+    excluded_sources = {
+        "ML Local PMM 100km",
+        "ML Ensemble Max",
+        "ML r100kmV2",
+    }
     grouped: dict[tuple[str, int], dict[str, int]] = defaultdict(
         lambda: {"hits": 0, "misses": 0, "false_alarms": 0, "correct_negatives": 0}
     )
     with source.open(newline="") as handle:
         for row in csv.DictReader(handle):
-            if row["Source"] in excluded_sources:
+            normalized_source = "".join(ch for ch in row["Source"].lower() if ch.isalnum())
+            retired_60km_variant = normalized_source.startswith("mlr60") and normalized_source.endswith("v2")
+            if row["Source"] in excluded_sources or retired_60km_variant:
                 continue
             threshold = int(round(float(row["Threshold"]) * 100))
             if threshold not in THRESHOLDS:
@@ -680,6 +685,7 @@ def publish_realtime_verification(
             definition,
             name,
             product_keys=product_keys,
+            forecast_day=forecast_day,
         )
         window["generated_utc"] = generated
         windows[name] = window

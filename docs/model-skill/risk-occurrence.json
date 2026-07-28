@@ -7,7 +7,7 @@
     "ML Local PMM 100km",
     "ML r100kmV2"
   ],
-  "generated_utc": "2026-07-20T16:34:59Z",
+  "generated_utc": "2026-07-28T22:24:42Z",
   "products": {
     "ML Ensemble Mean": {
       "15": {
@@ -23,13 +23,13 @@
         "verified_day_count": 45
       },
       "40": {
-        "correct_negative_day_count": 8,
-        "csi": 0.75675676,
-        "ets": 0.34782609,
-        "false_alarm_day_count": 1,
-        "forecast_risk_day_count": 29,
-        "hit_day_count": 28,
-        "miss_day_count": 8,
+        "correct_negative_day_count": 7,
+        "csi": 0.76315789,
+        "ets": 0.31818182,
+        "false_alarm_day_count": 2,
+        "forecast_risk_day_count": 31,
+        "hit_day_count": 29,
+        "miss_day_count": 7,
         "pp_risk_day_count": 36,
         "threshold_label": "Moderate or greater",
         "verified_day_count": 45
@@ -204,56 +204,6 @@
         "forecast_risk_day_count": 1,
         "hit_day_count": 1,
         "miss_day_count": 8,
-        "pp_risk_day_count": 9,
-        "threshold_label": "High",
-        "verified_day_count": 45
-      }
-    },
-    "ML r60kmV2": {
-      "15": {
-        "correct_negative_day_count": 0,
-        "csi": 1.0,
-        "ets": 1.0,
-        "false_alarm_day_count": 0,
-        "forecast_risk_day_count": 45,
-        "hit_day_count": 45,
-        "miss_day_count": 0,
-        "pp_risk_day_count": 45,
-        "threshold_label": "Slight or greater",
-        "verified_day_count": 45
-      },
-      "40": {
-        "correct_negative_day_count": 1,
-        "csi": 0.81818182,
-        "ets": 0.09090909,
-        "false_alarm_day_count": 8,
-        "forecast_risk_day_count": 44,
-        "hit_day_count": 36,
-        "miss_day_count": 0,
-        "pp_risk_day_count": 36,
-        "threshold_label": "Moderate or greater",
-        "verified_day_count": 45
-      },
-      "5": {
-        "correct_negative_day_count": 0,
-        "csi": 1.0,
-        "ets": 1.0,
-        "false_alarm_day_count": 0,
-        "forecast_risk_day_count": 45,
-        "hit_day_count": 45,
-        "miss_day_count": 0,
-        "pp_risk_day_count": 45,
-        "threshold_label": "Marginal or greater",
-        "verified_day_count": 45
-      },
-      "70": {
-        "correct_negative_day_count": 29,
-        "csi": 0.1875,
-        "ets": 0.07142857,
-        "false_alarm_day_count": 7,
-        "forecast_risk_day_count": 10,
-        "hit_day_count": 3,
-        "miss_day_count": 6,
         "pp_risk_day_count": 9,
         "threshold_label": "High",
         "verified_day_count": 45

@@ -1,7 +1,68 @@
 {
   "dataset_class": "realtime-issued-verification",
   "forecast_day": 2,
-  "generated_utc": "2026-07-28T21:36:09Z",
+  "generated_utc": "2026-07-28T22:28:05Z",
   "schema_version": 4,
-  "windows": {}
+  "windows": {
+    "monthly": {
+      "completeness_percent": 0.0,
+      "dataset_class": "realtime-issued-verification",
+      "default_reference": "practically_perfect",
+      "definition": "Trailing 30 calendar days",
+      "end_date": "20260729",
+      "expected_calendar_days": 30,
+      "forecast_day": 2,
+      "generated_utc": "2026-07-28T22:28:05Z",
+      "missing_day_count": 30,
+      "products": {},
+      "references": {
+        "practically_perfect": {
+          "label": "Practically Perfect (smoothed any-flood-proxy field)",
+          "products": {},
+          "truth_definition": "Continuous Practically Perfect probabilities constructed from the available UFVS flood proxies after 40-km expansion and 100-km smoothing."
+        },
+        "ufvs_40km": {
+          "label": "UFVS flood proxies (40-km expansion)",
+          "products": {},
+          "truth_definition": "Binary occurrence within 40 km of any Stage IV > FFG, Stage IV ARI, USGS, or flash-flood-report proxy point."
+        }
+      },
+      "schema_version": 4,
+      "start_date": "20260630",
+      "verification_target": "Practically Perfect (smoothed any-flood-proxy field)",
+      "verified_dates": [],
+      "verified_forecast_count": 0,
+      "window": "monthly"
+    },
+    "seasonal": {
+      "completeness_percent": 0.0,
+      "dataset_class": "realtime-issued-verification",
+      "default_reference": "practically_perfect",
+      "definition": "JJA meteorological season to date",
+      "end_date": "20260729",
+      "expected_calendar_days": 59,
+      "forecast_day": 2,
+      "generated_utc": "2026-07-28T22:28:05Z",
+      "missing_day_count": 59,
+      "products": {},
+      "references": {
+        "practically_perfect": {
+          "label": "Practically Perfect (smoothed any-flood-proxy field)",
+          "products": {},
+          "truth_definition": "Continuous Practically Perfect probabilities constructed from the available UFVS flood proxies after 40-km expansion and 100-km smoothing."
+        },
+        "ufvs_40km": {
+          "label": "UFVS flood proxies (40-km expansion)",
+          "products": {},
+          "truth_definition": "Binary occurrence within 40 km of any Stage IV > FFG, Stage IV ARI, USGS, or flash-flood-report proxy point."
+        }
+      },
+      "schema_version": 4,
+      "start_date": "20260601",
+      "verification_target": "Practically Perfect (smoothed any-flood-proxy field)",
+      "verified_dates": [],
+      "verified_forecast_count": 0,
+      "window": "seasonal"
+    }
+  }
 }
