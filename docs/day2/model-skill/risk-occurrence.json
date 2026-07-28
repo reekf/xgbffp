@@ -5,7 +5,7 @@
   "test_period": "2024\u20132025",
   "verification_target": "Practically Perfect: Any flood proxy",
   "count_unit": "forecast-day risk-occurrence contingency counts across 45 test cases",
-  "generated_utc": "2026-07-28T21:37:56Z",
+  "generated_utc": "2026-07-28T22:38:18Z",
   "products": {
     "ML r40": {
       "5": {

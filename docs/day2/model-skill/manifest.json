@@ -1,37 +1,71 @@
 {
-  "schema_version": 1,
-  "forecast_day": 2,
   "dataset_class": "formal-independent-test-set",
-  "test_period": "2024\u20132025",
-  "generated_utc": "2026-07-28T21:37:56Z",
   "figures": [
     {
-      "title": "Day-2 Practically Perfect ETS by threshold",
+      "generated_utc": "2026-07-28T22:38:18Z",
       "metric": "ETS",
+      "model": "XGBoost v33 Day-2 radius configurations and WPC ERO",
+      "path": "model-skill/ets_any_flood_proxy.png",
+      "source_asset": "paper_verification_bs_ets_final_v33day2valid/ets_any_flood_proxy_ets.png",
+      "source_directory": "paper_verification_bs_ets_final_v33day2valid",
+      "source_function": "compute_ets_pod_far / run_final_bs_ets_verification_plots",
+      "source_script": "hazard_ml_v33_day2_verification_viewer.ipynb",
+      "target": "Any flood proxy",
+      "test_case_count": 45,
+      "test_date_range": "20240610\u201320250729",
+      "test_period": "2024\u20132025",
+      "thresholds_percent": [
+        5
+      ],
+      "title": "Day-2 Any Flood Proxy ETS"
+    },
+    {
+      "generated_utc": "2026-07-28T22:38:18Z",
+      "metric": "ETS",
+      "model": "XGBoost v33 Day-2 radius configurations and WPC ERO",
+      "path": "model-skill/ets_practically_perfect.png",
+      "source_asset": "paper_verification_bs_ets_final_v33day2valid/ets_pp_any_flood_proxy_ets.png",
+      "source_directory": "paper_verification_bs_ets_final_v33day2valid",
+      "source_function": "compute_ets_pod_far / run_final_bs_ets_verification_plots",
+      "source_script": "hazard_ml_v33_day2_verification_viewer.ipynb",
       "target": "Practically Perfect: Any flood proxy",
-      "test_period": "2024\u20132025",
       "test_case_count": 45,
-      "path": "model-skill/ets_practically_perfect.png"
+      "test_date_range": "20240610\u201320250729",
+      "test_period": "2024\u20132025",
+      "thresholds_percent": [
+        5,
+        15,
+        40,
+        70
+      ],
+      "title": "Day-2 Practically Perfect ETS by threshold"
     },
     {
-      "title": "Day-2 UFVS-expanded-40-km ETS",
-      "metric": "ETS",
-      "target": "UFVS Any flood proxy expanded 40 km",
-      "test_period": "2024\u20132025",
-      "test_case_count": 45,
-      "path": "model-skill/ets_ufvs_expanded40.png"
-    },
-    {
-      "title": "Day-2 Brier Score: including and excluding marginal",
+      "generated_utc": "2026-07-28T22:38:18Z",
       "metric": "Brier Score",
-      "target": "Practically Perfect: Any flood proxy",
-      "test_period": "2024\u20132025",
+      "model": "XGBoost v33 Day-2 radius configurations and WPC ERO",
+      "path": "model-skill/brier_any_flood_proxy_including_excluding_marginal.png",
+      "source_asset": "paper_verification_bs_ets_final_v33day2valid/bs_any_flood_proxy_include_exclude_marginal.png",
+      "source_directory": "paper_verification_bs_ets_final_v33day2valid",
+      "source_function": "run_final_bs_ets_verification_plots",
+      "source_script": "hazard_ml_v33_day2_verification_viewer.ipynb",
+      "target": "Any flood proxy",
       "test_case_count": 45,
+      "test_date_range": "20240610\u201320250729",
+      "test_period": "2024\u20132025",
+      "thresholds_percent": [
+        5,
+        15
+      ],
+      "title": "Day-2 Any Flood Proxy Brier Score",
       "evaluations": [
         "Including Marginal",
         "Excluding Marginal"
-      ],
-      "path": "model-skill/brier_including_excluding_marginal.png"
+      ]
     }
-  ]
+  ],
+  "forecast_day": 2,
+  "generated_utc": "2026-07-28T22:38:18Z",
+  "schema_version": 1,
+  "test_period": "2024\u20132025"
 }

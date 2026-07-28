@@ -3,14 +3,14 @@
   "forecast_day": 2,
   "dataset_class": "trained-model-feature-importance",
   "test_period": "2024\u20132025",
-  "generated_utc": "2026-07-28T21:37:56Z",
+  "generated_utc": "2026-07-28T22:38:18Z",
   "figures": [
     {
       "title": "Day-2 r40 native XGBoost feature importance",
       "kind": "importance",
       "model": "r40",
       "test_period": "2024\u20132025",
-      "generated_utc": "2026-07-28T21:37:56Z",
+      "generated_utc": "2026-07-28T22:38:18Z",
       "path": "explainability/importance/r40.png"
     },
     {
@@ -18,7 +18,7 @@
       "kind": "importance",
       "model": "r60",
       "test_period": "2024\u20132025",
-      "generated_utc": "2026-07-28T21:37:56Z",
+      "generated_utc": "2026-07-28T22:38:18Z",
       "path": "explainability/importance/r60.png"
     },
     {
@@ -26,7 +26,7 @@
       "kind": "importance",
       "model": "r75",
       "test_period": "2024\u20132025",
-      "generated_utc": "2026-07-28T21:37:56Z",
+      "generated_utc": "2026-07-28T22:38:18Z",
       "path": "explainability/importance/r75.png"
     },
     {
@@ -34,7 +34,7 @@
       "kind": "importance",
       "model": "r100",
       "test_period": "2024\u20132025",
-      "generated_utc": "2026-07-28T21:37:56Z",
+      "generated_utc": "2026-07-28T22:38:18Z",
       "path": "explainability/importance/r100.png"
     }
   ]
