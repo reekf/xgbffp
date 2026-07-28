@@ -24,12 +24,13 @@
     "20260722",
     "20260723",
     "20260724",
-    "20260726"
+    "20260726",
+    "20260727"
   ],
   "daily_path_template": "verification/daily/{date}.json",
-  "daily_record_count": 25,
+  "daily_record_count": 26,
   "dataset_class": "realtime-issued-verification",
-  "generated_utc": "2026-07-28T03:37:32Z",
+  "generated_utc": "2026-07-28T16:48:18Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"
