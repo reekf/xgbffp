@@ -2383,10 +2383,7 @@ function buildLayerControls() {
 }
 
 function updateDateUI(entry) {
-  const issueLabel = state.forecastDay === 2 && (state.data.issue_date || entry?.issue_date)
-    ? ` · Issued ${state.data.issue_date || entry.issue_date}`
-    : "";
-  document.getElementById("valid-period").textContent = `Valid ${state.data.valid_period_label}${issueLabel}`;
+  document.getElementById("valid-period").textContent = `Valid ${state.data.valid_period_label}`;
   const staticHref = entry?.plot_href || `${horizonRoot()}archive/${state.data.date}/latest.png`;
   document.getElementById("current-png-link").href = `${staticHref}?v=${encodeURIComponent(entry?.site_updated_utc || state.data.generated_utc)}`;
   const verificationLink = document.getElementById("current-verification-link");
@@ -2457,10 +2454,11 @@ function populateDates() {
   for (const entry of state.archive) {
     const option = document.createElement("option");
     option.value = entry.date;
-    const dateLabel = `${String(entry.date).slice(0, 4)}-${String(entry.date).slice(4, 6)}-${String(entry.date).slice(6, 8)}`;
+    const forecastDate = String(state.forecastDay === 2 && entry.issue_date ? entry.issue_date : entry.date).replace(/-/g, "");
+    const dateLabel = `${forecastDate.slice(0, 4)}-${forecastDate.slice(4, 6)}-${forecastDate.slice(6, 8)}`;
     option.textContent = entry.mcs_eligible === false
       ? `${dateLabel} — Non-MCS-associated precipitation`
-      : (state.forecastDay === 2 && entry.issue_date ? `${dateLabel} valid · issued ${entry.issue_date}` : dateLabel);
+      : dateLabel;
     option.disabled = entry.map_available === false || entry.mcs_eligible === false;
     select.append(option);
   }

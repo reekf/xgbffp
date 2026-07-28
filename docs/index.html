@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" crossorigin="">
-  <link rel="stylesheet" href="style.css?v=20260728-day2-1">
+  <link rel="stylesheet" href="style.css?v=20260728-day2-2">
 </head>
 <body>
   <div id="map" aria-label="Interactive ML flash-flood probability map"></div>
@@ -37,18 +37,14 @@
     </nav>
 
     <div class="date-controls">
+      <select id="forecast-day-select" aria-label="Forecast day">
+        <option value="1" selected>Day 1</option>
+        <option value="2">Day 2</option>
+      </select>
       <label for="date-select">Forecast</label>
       <select id="date-select" aria-label="Forecast date"></select>
       <span id="valid-period">Loading forecast…</span>
     </div>
-
-    <label class="horizon-control" for="forecast-day-select">
-      <span>Forecast horizon</span>
-      <select id="forecast-day-select" aria-label="Forecast horizon">
-        <option value="1" selected>Day 1</option>
-        <option value="2">Day 2</option>
-      </select>
-    </label>
 
     <nav class="top-actions" aria-label="Site actions">
       <button id="mobile-actions-toggle" class="icon-button mobile-actions-toggle" type="button" aria-expanded="false" aria-label="Open map actions">Menu</button>
@@ -625,6 +621,6 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" crossorigin=""></script>
   <script src="https://unpkg.com/deck.gl@9.1.14/dist.min.js" crossorigin=""></script>
   <script src="briefing.js?v=20260719-xgbffp-1"></script>
-  <script src="app.js?v=20260728-day2-1"></script>
+  <script src="app.js?v=20260728-day2-2"></script>
 </body>
 </html>
