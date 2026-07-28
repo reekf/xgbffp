@@ -1263,6 +1263,9 @@ tr.best-performing td {
 .presentation-list div { display: grid; align-content: start; gap: 10px; }
 .presentation-list strong { font-size: 0.7rem; line-height: 1.55; }
 .presentation-list span { color: var(--muted); font-size: 0.62rem; line-height: 1.45; }
+.presentation-list .presentation-watch-link { width: fit-content; color: #a9d8ff; font-size: 0.62rem; line-height: 1.4; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.presentation-list .presentation-watch-link:hover { color: #fff; }
+.presentation-list .presentation-watch-link span { color: inherit; }
 
 .creator-footer-card { display: grid; grid-template-columns: 0.55fr 1fr; gap: 30px; align-items: center; margin-top: 50px; padding: 28px; background: linear-gradient(120deg, rgba(57, 101, 129, 0.25), #0d1115 62%); border: 1px solid #3c5869; }
 .creator-footer-card h3 { margin: 5px 0; font-size: 1.25rem; }
