@@ -9,11 +9,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from realtime_mcs_trigger_plot import (
     MCSDetectionResult,
-    combine_hrrr_rap_gate,
+    finalize_hrrr_only_gate,
     load_training_module_for_realtime,
     parse_args,
-    rap_aws_url,
 )
+from audit_2026_mcs_archive import classification_from_summary  # noqa: E402
 
 
 def test_dynamic_helper_can_import_sibling_module(tmp_path):
@@ -41,35 +41,35 @@ def test_dynamic_helper_can_import_sibling_module(tmp_path):
         sys.modules.pop("mode_case_catalog", None)
 
 
-def test_dual_model_gate_requires_both_models():
+def test_hrrr_only_gate_uses_hrrr_result():
     base = MCSDetectionResult(True, 241.0, 60000.0, 1, 1, 70000.0, None)
-    combined = combine_hrrr_rap_gate(
-        base,
-        {
-            "mcs_detected": False,
-            "ir_available": True,
-            "ir_required": True,
-            "ir_duration_met": True,
-            "structural_duration_met": False,
-            "rap_cycle": "09",
-        },
-        None, None, None, None,
-    )
-    assert combined.hrrr_triggered is True
-    assert combined.rap_triggered is False
-    assert combined.triggered is False
+    finalized = finalize_hrrr_only_gate(base, None, None, None, None)
+    assert finalized.hrrr_triggered is True
+    assert finalized.triggered is True
+    assert list(finalized.model_results) == ["hrrr"]
 
 
-def test_rap_defaults_align_with_hrrr_valid_window():
+def test_hrrr_gate_defaults():
     args = parse_args(["--date", "20260727"])
     assert (args.hrrr_cycle, args.fhr_start, args.fhr_end) == ("12", 0, 24)
-    assert (args.rap_cycle, args.rap_fhr_start, args.rap_fhr_end) == ("09", 3, 27)
     assert args.mcs_cloud_duration_hours == 3
     assert args.mcs_structural_duration_hours == 4
-    assert args.rap_structural_duration_hours == 2
-    assert rap_aws_url("20260727", "09", 3).endswith(
-        "/rap.20260727/rap.t09z.awp130pgrbf03.grib2"
+
+
+def test_archive_classification_ignores_stale_rap_gate_metadata():
+    result = classification_from_summary(
+        "20260727",
+        {
+            "mcs_detected": False,
+            "hrrr_mcs_detected": True,
+            "ir_duration_met": True,
+            "structural_duration_met": True,
+            "rap_mcs_detection": {"mcs_detected": False},
+        },
     )
+    assert result["mcs_eligible"] is True
+    assert result["hrrr_criterion_met"] is True
+    assert not any(key.startswith("rap_") for key in result)
 
 
 if __name__ == "__main__":
@@ -77,6 +77,7 @@ if __name__ == "__main__":
 
     with tempfile.TemporaryDirectory() as directory:
         test_dynamic_helper_can_import_sibling_module(Path(directory))
-    test_dual_model_gate_requires_both_models()
-    test_rap_defaults_align_with_hrrr_valid_window()
+    test_hrrr_only_gate_uses_hrrr_result()
+    test_hrrr_gate_defaults()
+    test_archive_classification_ignores_stale_rap_gate_metadata()
     print("Realtime helper sibling-import regression check passed.")

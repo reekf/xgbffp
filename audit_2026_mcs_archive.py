@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classify archived 2026 forecasts with the dual HRRR+RAP MCS lifecycle gate."""
+"""Classify archived 2026 forecasts with the HRRR PyFLEXTRKR MCS lifecycle gate."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def write_json(path: Path, payload: object) -> None:
 def hrrr_summary_is_current(summary: dict, fhr_end: int) -> bool:
     completed = summary.get("pyflextrkr_official_steps_completed", [])
     steps_are_valid = bool(completed) and completed == OFFICIAL_STEPS[: len(completed)]
-    if bool(summary.get("mcs_detected")):
+    if bool(summary.get("hrrr_mcs_detected", summary.get("mcs_detected"))):
         steps_are_valid = completed == OFFICIAL_STEPS
     return (
         summary.get("mcs_method") == "actual_pyflextrkr"
@@ -56,48 +56,20 @@ def hrrr_summary_is_current(summary: dict, fhr_end: int) -> bool:
 
 
 def summary_is_current(summary: dict, fhr_end: int) -> bool:
-    rap = summary.get("rap_mcs_detection") or {}
-    rap_completed = rap.get("pyflextrkr_official_steps_completed", [])
-    rap_steps_are_valid = bool(rap_completed) and rap_completed == OFFICIAL_STEPS[: len(rap_completed)]
-    if bool(rap.get("mcs_detected")):
-        rap_steps_are_valid = rap_completed == OFFICIAL_STEPS
-    rap_ir_available = rap.get("ir_available") is True
-    return (
-        hrrr_summary_is_current(summary, fhr_end)
-        and (summary.get("dual_model_gate") or {}).get("required_models") == ["HRRR", "RAP"]
-        and rap.get("mcs_method") == "actual_pyflextrkr"
-        and rap.get("pyflextrkr_package_version") == PYFLEXTRKR_PACKAGE_VERSION
-        and rap.get("pyflextrkr_upstream_commit") == PYFLEXTRKR_UPSTREAM_COMMIT
-        and rap_steps_are_valid
-        and int(rap.get("fhr_start", -1)) == 3
-        and int(rap.get("fhr_end", -1)) == 27
-        and float(rap.get("ir_area_threshold_km2", -1)) == 60000.0
-        and int(rap.get("ir_duration_threshold_hours", -1)) == 3
-        and int(rap.get("structural_duration_threshold_hours", -1)) == 2
-        and float(rap.get("precipitation_threshold_dbz", -1)) == 25.0
-        and float(rap.get("precipitation_major_axis_threshold_km", -1)) == 100.0
-        and float(rap.get("convective_threshold_dbz", -1)) == 45.0
-        and len(rap.get("reflectivity_records", [])) == 25
-        and (not rap_ir_available or len(rap.get("ir_records", [])) == 25)
-    )
+    return hrrr_summary_is_current(summary, fhr_end)
 
 
 def classification_from_summary(day: str, summary: dict) -> dict:
     ir_met = bool(summary.get("ir_duration_met"))
     structural_met = bool(summary.get("structural_duration_met"))
     rainfall_met = bool(summary.get("qpf6_threshold_met"))
-    rap = summary.get("rap_mcs_detection") or {}
     hrrr_met = bool(summary.get("hrrr_mcs_detected", ir_met and structural_met))
-    rap_met = bool(rap.get("mcs_detected"))
-    rap_ir_available = bool(rap.get("ir_available"))
-    eligible = bool(summary.get("mcs_detected") and hrrr_met and rap_met)
+    eligible = hrrr_met
     rainfall_only = bool(rainfall_met and not ir_met)
     if eligible:
         label = "MCS-associated precipitation"
     elif not hrrr_met:
         label = "Non-MCS-associated precipitation — HRRR criterion not met"
-    elif not rap_met:
-        label = "Non-MCS-associated precipitation — RAP criterion not met"
     elif rainfall_only:
         label = "Non-MCS-associated precipitation — rainfall threshold only"
     elif not ir_met:
@@ -112,11 +84,6 @@ def classification_from_summary(day: str, summary: dict) -> dict:
         "ir_duration_met": ir_met,
         "structural_duration_met": structural_met,
         "hrrr_criterion_met": hrrr_met,
-        "rap_criterion_met": rap_met,
-        "rap_ir_available": rap_ir_available,
-        "rap_ir_required": bool(rap.get("ir_required")),
-        "rap_ir_duration_met": rap.get("ir_duration_met"),
-        "rap_structural_duration_met": bool(rap.get("structural_duration_met")),
         "qpf6_threshold_met": rainfall_met,
         "max_ir_duration_hours": int(summary.get("max_ir_duration_hours", 0)),
         "max_joint_duration_hours": int(summary.get("max_joint_duration_hours", 0)),
@@ -147,8 +114,6 @@ def audit_case(day: str, args, cache_root: Path, audit_status_dir: Path) -> tupl
     ]
     if args.force:
         command.append("--force-pyflextrkr")
-    elif hrrr_summary_is_current(summary, args.fhr_end):
-        command.append("--rap-audit-only-existing-hrrr")
     completed = subprocess.run(
         command,
         cwd=REPO_DIR,
@@ -221,13 +186,13 @@ def main() -> int:
                 "mcs_eligible": result["mcs_eligible"],
                 "mcs_classification_label": result["label"],
                 "mcs_classification": {
-                    "method": "Dual-model actual PyFLEXTRKR gate using HRRR and RAP SBT/REFC",
+                    "method": "HRRR-only actual PyFLEXTRKR gate using HRRR SBT/REFC",
                     "pyflextrkr_package_version": summary.get("pyflextrkr_package_version"),
                     "pyflextrkr_upstream_commit": summary.get("pyflextrkr_upstream_commit"),
                     "official_steps_completed": summary.get("pyflextrkr_official_steps_completed", []),
-                    "cloud_shield": "HRRR and RAP SBT < 241 K with area > 60000 km2 for at least 3 continuous hours",
-                    "precipitation_feature": "HRRR >=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours; RAP for at least 2 continuous hours",
-                    "convective_feature": "HRRR composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours; RAP for at least 2 continuous hours",
+                    "cloud_shield": "HRRR SBT < 241 K with area > 60000 km2 for at least 3 continuous hours",
+                    "precipitation_feature": "HRRR >=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours",
+                    "convective_feature": "HRRR composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours",
                     "overlap_fraction": 0.5,
                     "ir_duration_met": result["ir_duration_met"],
                     "structural_duration_met": result["structural_duration_met"],
@@ -236,21 +201,15 @@ def main() -> int:
                     "max_ir_duration_hours": result["max_ir_duration_hours"],
                     "max_joint_duration_hours": result["max_joint_duration_hours"],
                     "hrrr_criterion_met": result["hrrr_criterion_met"],
-                    "rap_criterion_met": result["rap_criterion_met"],
-                    "rap_ir_available": result["rap_ir_available"],
-                    "rap_ir_required": result["rap_ir_required"],
-                    "rap_ir_duration_met": result["rap_ir_duration_met"],
-                    "rap_structural_duration_met": result["rap_structural_duration_met"],
-                    "rap_cycle_and_hours": "09Z f03-f27 (same 12Z-to-12Z valid window as HRRR 12Z f00-f24)",
                 },
             }
         )
         write_json(status_path, status)
 
     manifest = {
-        "schema_version": 4,
+        "schema_version": 5,
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "method": "Dual-model actual PyFLEXTRKR gate requiring independent HRRR and RAP qualification",
+        "method": "HRRR-only actual PyFLEXTRKR gate",
         "pyflextrkr_package_version": PYFLEXTRKR_PACKAGE_VERSION,
         "pyflextrkr_upstream_commit": PYFLEXTRKR_UPSTREAM_COMMIT,
         "official_steps": OFFICIAL_STEPS,
@@ -261,16 +220,13 @@ def main() -> int:
             "precipitation_feature_threshold_dbz": 25,
             "precipitation_feature_major_axis_km": 100,
             "convective_feature_threshold_dbz": 45,
-            "reflectivity_representation": "HRRR and RAP REFC composites are independently repeated on compatibility levels to represent reflectivity exceeding 45 dBZ at any vertical level; neither is a reconstructed vertical profile",
+            "reflectivity_representation": "HRRR REFC composite is repeated on compatibility levels to represent reflectivity exceeding 45 dBZ at any vertical level; it is not a reconstructed vertical profile",
             "hrrr_structural_duration_hours": 4,
-            "rap_structural_duration_hours": 2,
-            "duration_definition": "Cold-cloud shield requires at least three continuous hourly samples in both models; precipitation and convective structure require at least four continuous hourly samples in HRRR and two in RAP",
+            "duration_definition": "HRRR cold-cloud shield requires at least three continuous hourly samples; HRRR precipitation and convective structure require at least four continuous hourly samples",
             "object_overlap_fraction": 0.5,
             "qpf6_rainfall_only_diagnostic_mm": 50.8,
-            "required_models": ["HRRR", "RAP"],
+            "required_models": ["HRRR"],
             "hrrr_window": "12Z f00-f24",
-            "rap_window": "09Z f03-f27",
-            "rap_ir_fallback": "Exclude only RAP IR when SBT is absent from the RAP product; RAP structural criteria remain mandatory",
         },
         "case_count": len(results),
         "eligible_count": sum(item["mcs_eligible"] for item in results),

@@ -5,16 +5,12 @@ Standalone realtime ML probability plotter with an internal generation gate. Che
 Run from shell/cron/systemd. It does NOT require a notebook session.
 
 Core workflow:
-  1) Download/read HRRR and RAP simulated brightness temperature and composite
-     reflectivity for the common 12Z-to-12Z valid window. Track objects through
-     time using the actual PyFLEXTRKR lifecycle pipeline. Default: 12Z HRRR f00-f24
-     and 09Z RAP f03-f27,
-     SBT < 241 K and cold shield >6.0e4 km^2 for at least 3 hours. HRRR's
-     precipitation/convective structure must last at least 4 hours; RAP's must
-     last at least 2 hours.
-     Both models must qualify. If RAP SBT is absent from the product, RAP uses the
-     same structural criteria without an IR requirement; HRRR always requires IR.
-  2) If the dual-model MCS trigger fires, build realtime features using the generated v33
+  1) Download/read HRRR simulated brightness temperature and composite
+     reflectivity for the 12Z-to-12Z valid window. Track objects through time
+     using the actual PyFLEXTRKR lifecycle pipeline. Default: 12Z HRRR f00-f24,
+     SBT < 241 K and cold shield >6.0e4 km^2 for at least 3 hours, with the
+     precipitation/convective structure lasting at least 4 hours.
+  2) If the HRRR MCS trigger fires, build realtime features using the generated v33
      helper script used during training. The helper's GRIB validation is patched to
      avoid a pygrib/eccodes segfault observed on Python 3.14.
   3) Load saved model/scaler/feature-name artifacts for each requested radius.
@@ -2072,9 +2068,6 @@ class MCSDetectionResult:
     ir_debug_image: str | None = None
     qpf6_debug_image: str | None = None
     hrrr_triggered: bool | None = None
-    rap_triggered: bool | None = None
-    rap_ir_available: bool | None = None
-    rap_ir_required: bool | None = None
     model_results: dict | None = None
 
 
@@ -3244,7 +3237,7 @@ def run_hrrr_mcs_detection(args, rp: RuntimePaths) -> tuple[MCSDetectionResult, 
 
 
 def run_rap_mcs_detection(args, rp: RuntimePaths) -> dict:
-    """Run the RAP side of the dual-model gate for the same 12Z-to-12Z window."""
+    """Legacy RAP research diagnostic; not called by the operational HRRR gate."""
     d = date8(args.date)
     cycle = f"{int(args.rap_cycle):02d}"
     fhr_start = int(args.rap_fhr_start)
@@ -3444,18 +3437,15 @@ def run_rap_mcs_detection(args, rp: RuntimePaths) -> dict:
     return summary
 
 
-def combine_hrrr_rap_gate(
+def finalize_hrrr_only_gate(
     hrrr_result: MCSDetectionResult,
-    rap_summary: dict,
     mask: np.ndarray | None,
     lat: np.ndarray | None,
     lon: np.ndarray | None,
     bt: np.ndarray | None,
 ) -> MCSDetectionResult:
-    """Require independent HRRR and RAP qualification and persist child-safe metadata."""
+    """Use HRRR as the sole MCS gate and persist child-safe metadata."""
     hrrr_triggered = bool(hrrr_result.triggered)
-    rap_triggered = bool(rap_summary.get("mcs_detected"))
-    overall = bool(hrrr_triggered and rap_triggered)
     model_results = {
         "hrrr": {
             "triggered": hrrr_triggered,
@@ -3467,39 +3457,24 @@ def combine_hrrr_rap_gate(
             "max_joint_duration_hours": hrrr_result.max_joint_duration_hours,
             "cycle": hrrr_result.hrrr_cycle,
         },
-        "rap": {
-            "triggered": rap_triggered,
-            "ir_available": bool(rap_summary.get("ir_available")),
-            "ir_required": bool(rap_summary.get("ir_required")),
-            "ir_requirement_mode": rap_summary.get("ir_requirement_mode"),
-            "ir_duration_met": rap_summary.get("ir_duration_met"),
-            "structural_duration_met": rap_summary.get("structural_duration_met"),
-            "max_ir_duration_hours": rap_summary.get("max_ir_duration_hours"),
-            "max_joint_duration_hours": rap_summary.get("max_joint_duration_hours"),
-            "cycle": rap_summary.get("rap_cycle"),
-            "summary_path": rap_summary.get("summary_path"),
-        },
     }
-    hrrr_result.triggered = overall
+    hrrr_result.triggered = hrrr_triggered
     hrrr_result.hrrr_triggered = hrrr_triggered
-    hrrr_result.rap_triggered = rap_triggered
-    hrrr_result.rap_ir_available = bool(rap_summary.get("ir_available"))
-    hrrr_result.rap_ir_required = bool(rap_summary.get("ir_required"))
     hrrr_result.model_results = model_results
-    hrrr_result.source = "Dual-model actual PyFLEXTRKR gate using HRRR and RAP"
+    hrrr_result.source = "HRRR-only actual PyFLEXTRKR gate using SBT and REFC"
 
     if hrrr_result.summary_path:
         summary_path = Path(hrrr_result.summary_path)
         summary = json.loads(summary_path.read_text())
         summary["hrrr_mcs_detected"] = hrrr_triggered
-        summary["rap_mcs_detection"] = rap_summary
-        summary["dual_model_gate"] = {
-            "required_models": ["HRRR", "RAP"],
+        summary.pop("rap_mcs_detection", None)
+        summary.pop("dual_model_gate", None)
+        summary["mcs_gate"] = {
+            "required_models": ["HRRR"],
             "hrrr_triggered": hrrr_triggered,
-            "rap_triggered": rap_triggered,
-            "mcs_detected": overall,
+            "mcs_detected": hrrr_triggered,
         }
-        summary["mcs_detected"] = overall
+        summary["mcs_detected"] = hrrr_triggered
         summary_path.write_text(json.dumps(summary, indent=2, default=str))
         if hrrr_result.mask_path and mask is not None and lat is not None and lon is not None:
             write_mcs_mask_npz(
@@ -3509,7 +3484,6 @@ def combine_hrrr_rap_gate(
 
 
 def get_mcs_detection(args, rp: RuntimePaths):
-    d = date8(args.date)
     if args.mcs_mask_path:
         mask, lat, lon, bt, meta = read_mcs_mask_npz(args.mcs_mask_path)
         lifecycle_summary = meta.get("summary", {}) if isinstance(meta, dict) else {}
@@ -3560,17 +3534,19 @@ def get_mcs_detection(args, rp: RuntimePaths):
             pyflextrkr_config_path=lifecycle_summary.get("pyflextrkr_config_path"),
             pyflextrkr_input_manifest_path=lifecycle_summary.get("pyflextrkr_input_manifest_path"),
             pyflextrkr_official_steps_completed=lifecycle_summary.get("pyflextrkr_official_steps_completed"),
-            hrrr_triggered=(lifecycle_summary.get("dual_model_gate") or {}).get("hrrr_triggered"),
-            rap_triggered=(lifecycle_summary.get("dual_model_gate") or {}).get("rap_triggered"),
-            rap_ir_available=(lifecycle_summary.get("rap_mcs_detection") or {}).get("ir_available"),
-            rap_ir_required=(lifecycle_summary.get("rap_mcs_detection") or {}).get("ir_required"),
+            hrrr_triggered=(lifecycle_summary.get("mcs_gate") or {}).get(
+                "hrrr_triggered",
+                lifecycle_summary.get("hrrr_mcs_detected", lifecycle_summary.get("mcs_detected")),
+            ),
             model_results={
                 "hrrr": {
-                    "triggered": (lifecycle_summary.get("dual_model_gate") or {}).get("hrrr_triggered"),
+                    "triggered": (lifecycle_summary.get("mcs_gate") or {}).get(
+                        "hrrr_triggered",
+                        lifecycle_summary.get("hrrr_mcs_detected", lifecycle_summary.get("mcs_detected")),
+                    ),
                     "ir_duration_met": lifecycle_summary.get("ir_duration_met"),
                     "structural_duration_met": lifecycle_summary.get("structural_duration_met"),
                 },
-                "rap": lifecycle_summary.get("rap_mcs_detection") or {},
             },
         )
         return res, mask, lat, lon, bt
@@ -3580,21 +3556,8 @@ def get_mcs_detection(args, rp: RuntimePaths):
     if not args.run_hrrr_detector and not args.ir_path:
         raise RuntimeError("No MCS source supplied. Use default --run-hrrr-detector, pass --mcs-mask-path, or use --force-trigger.")
     hrrr_result, mask, lat, lon, bt = run_hrrr_mcs_detection(args, rp)
-    if not args.run_rap_detector:
-        if not args.force_trigger:
-            raise RuntimeError(
-                "The operational gate requires RAP. Use --force-trigger only for an explicit override."
-            )
-        return hrrr_result, mask, lat, lon, bt
-    rap_summary = run_rap_mcs_detection(args, rp)
-    rap_summary["summary_path"] = str(
-        (Path(args.rap_trigger_cache_dir).expanduser()
-         if args.rap_trigger_cache_dir
-         else rp.cache_dir / "rap_mcs_trigger_inputs" / f"{d}_{int(args.rap_cycle):02d}z")
-        / f"rap_mcs_trigger_summary_{d}_{int(args.rap_cycle):02d}z.json"
-    )
-    combined = combine_hrrr_rap_gate(hrrr_result, rap_summary, mask, lat, lon, bt)
-    return combined, mask, lat, lon, bt
+    finalized = finalize_hrrr_only_gate(hrrr_result, mask, lat, lon, bt)
+    return finalized, mask, lat, lon, bt
 
 
 
@@ -3803,13 +3766,12 @@ def parse_args(argv=None):
     p.add_argument("--hrrr-download-retry-seconds", type=int, default=HRRR_DEFAULT_DOWNLOAD_RETRY_SECONDS, help="Seconds between HRRR download retries. Default: 20")
     p.add_argument("--hrrr-nomads-pause-seconds", type=float, default=HRRR_DEFAULT_NOMADS_PAUSE_SECONDS, help="Pause after successful NOMADS subset download. Default: 0.25")
     p.add_argument("--hrrr-cell-area-km2", type=float, default=HRRR_DEFAULT_CELL_AREA_KM2, help="Approximate HRRR grid-cell area used for connected object area. Default: 9 km^2")
-    p.add_argument("--run-rap-detector", action=argparse.BooleanOptionalAction, default=True, help="Require an independent RAP PyFLEXTRKR MCS classification. Default: true")
-    p.add_argument("--rap-cycle", default=RAP_DEFAULT_CYCLE, help="RAP initialization cycle for the gate. Default: 09")
-    p.add_argument("--rap-fhr-start", type=int, default=RAP_DEFAULT_FHR_START, help="First RAP forecast hour; 09Z f03 aligns with 12Z. Default: 3")
-    p.add_argument("--rap-fhr-end", type=int, default=RAP_DEFAULT_FHR_END, help="Last RAP forecast hour; 09Z f27 aligns with next-day 12Z. Default: 27")
-    p.add_argument("--rap-trigger-cache-dir", default=None, help="Directory for RAP gate GRIB/PyFLEXTRKR files. Default: CACHE_DIR/rap_mcs_trigger_inputs/DATE_09z")
-    p.add_argument("--force-rap-download", action="store_true", help="Redownload RAP gate subsets even when valid cached files exist.")
-    p.add_argument("--rap-cell-area-km2", type=float, default=RAP_DEFAULT_CELL_AREA_KM2, help="Approximate RAP 13-km grid-cell area. Default: 169 km^2")
+    p.add_argument("--rap-cycle", default=RAP_DEFAULT_CYCLE, help=argparse.SUPPRESS)
+    p.add_argument("--rap-fhr-start", type=int, default=RAP_DEFAULT_FHR_START, help=argparse.SUPPRESS)
+    p.add_argument("--rap-fhr-end", type=int, default=RAP_DEFAULT_FHR_END, help=argparse.SUPPRESS)
+    p.add_argument("--rap-trigger-cache-dir", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--force-rap-download", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--rap-cell-area-km2", type=float, default=RAP_DEFAULT_CELL_AREA_KM2, help=argparse.SUPPRESS)
     p.add_argument("--bt-threshold-operator", default="<", choices=["<", "<=", ">", ">="], help="Operator for HRRR SBT trigger. Default: <, i.e., SBT < 241 K")
     p.add_argument("--include-qpf-trigger", action="store_true", help="Deprecated compatibility flag. QPF is recorded diagnostically but cannot make a forecast MCS-eligible.")
     p.add_argument("--include-qpf-debug", action="store_true", help="Download HRRR APCP and save the QPF6 rainfall-only diagnostic; QPF never triggers publishing.")
@@ -3822,15 +3784,14 @@ def parse_args(argv=None):
     p.add_argument("--lon-var", default=None, help="Longitude variable name in --ir-path.")
     p.add_argument("--bt-threshold-k", type=float, default=MCS_BT_THRESHOLD_K_DEFAULT, help="MCS cold cloud threshold. Default: BT < 241 K")
     p.add_argument("--min-mcs-area-km2", type=float, default=MCS_MIN_AREA_KM2_DEFAULT, help="Tracked cold-cloud-shield area must exceed this value. Default: 60000 km^2")
-    p.add_argument("--mcs-cloud-duration-hours", type=int, default=MCS_CLOUD_DURATION_HOURS_DEFAULT, help="Minimum continuous cold-cloud-shield duration for both HRRR and RAP. Default: 3 hourly samples")
+    p.add_argument("--mcs-cloud-duration-hours", type=int, default=MCS_CLOUD_DURATION_HOURS_DEFAULT, help="Minimum continuous HRRR cold-cloud-shield duration. Default: 3 hourly samples")
     p.add_argument("--mcs-structural-duration-hours", type=int, default=MCS_STRUCTURAL_DURATION_HOURS_DEFAULT, help="Minimum continuous HRRR precipitation-feature and convective-feature duration. Default: 4 hourly samples")
-    p.add_argument("--rap-structural-duration-hours", type=int, default=RAP_STRUCTURAL_DURATION_HOURS_DEFAULT, help="Minimum continuous RAP precipitation-feature and convective-feature duration. Default: 2 hourly samples")
+    p.add_argument("--rap-structural-duration-hours", type=int, default=RAP_STRUCTURAL_DURATION_HOURS_DEFAULT, help=argparse.SUPPRESS)
     p.add_argument("--track-overlap-threshold", type=float, default=MCS_TRACK_OVERLAP_THRESHOLD_DEFAULT, help="Minimum consecutive-hour object overlap fraction. Default: 0.5")
     p.add_argument("--precipitation-threshold-dbz", type=float, default=MCS_PRECIPITATION_THRESHOLD_DBZ_DEFAULT, help="Composite reflectivity used to delineate precipitation features. Default: 25 dBZ")
     p.add_argument("--precipitation-major-axis-km", type=float, default=MCS_PRECIPITATION_MAJOR_AXIS_KM_DEFAULT, help="Precipitation-feature major axis must exceed this value. Default: 100 km")
     p.add_argument("--convective-threshold-dbz", type=float, default=MCS_CONVECTIVE_THRESHOLD_DBZ_DEFAULT, help="A precipitation feature must contain composite reflectivity above this value. Default: 45 dBZ")
-    p.add_argument("--trigger-audit-only", action="store_true", help="Run the HRRR+RAP lifecycle audit, write status and summaries, and skip all ML prediction/plotting.")
-    p.add_argument("--rap-audit-only-existing-hrrr", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--trigger-audit-only", action="store_true", help="Run the HRRR lifecycle audit, write status and summaries, and skip all ML prediction/plotting.")
     p.add_argument("--force-trigger", action="store_true", help="Skip/override MCS detection and run ML plotting anyway.")
     p.add_argument("--overlay-mcs-contour-on-public-plot", action="store_true", help="Deprecated/no-op. Public ML/WPC plots never include internal generation-gate contours.")
 
@@ -3884,7 +3845,6 @@ def main(argv=None) -> int:
         "valid_period_label": valid_label,
         "trigger_cycle_label": args.cycle_label,
         "hrrr_trigger_cycle": f"{str(args.hrrr_cycle).zfill(2)}Z",
-        "rap_trigger_cycle": f"{str(args.rap_cycle).zfill(2)}Z",
         "started_utc": datetime.now(timezone.utc).isoformat(),
         "project_dir": str(rp.project_dir),
         "script_dir": str(rp.script_dir),
@@ -3895,47 +3855,6 @@ def main(argv=None) -> int:
         "error": None,
     }
     try:
-        if args.rap_audit_only_existing_hrrr:
-            hrrr_cycle = f"{int(args.hrrr_cycle):02d}"
-            hrrr_cache_dir = (
-                Path(args.hrrr_trigger_cache_dir).expanduser()
-                if args.hrrr_trigger_cache_dir
-                else rp.cache_dir / "hrrr_mcs_trigger_inputs" / f"{d}_{hrrr_cycle}z"
-            )
-            hrrr_summary_path = hrrr_cache_dir / f"hrrr_mcs_trigger_summary_{d}_{hrrr_cycle}z.json"
-            if not hrrr_summary_path.is_file():
-                raise RuntimeError(
-                    f"RAP-only audit requires an existing HRRR summary: {hrrr_summary_path}"
-                )
-            hrrr_summary = json.loads(hrrr_summary_path.read_text())
-            hrrr_triggered = bool(
-                hrrr_summary.get("hrrr_mcs_detected", hrrr_summary.get("mcs_detected"))
-            )
-            rap_summary = run_rap_mcs_detection(args, rp)
-            rap_triggered = bool(rap_summary.get("mcs_detected"))
-            hrrr_summary["hrrr_mcs_detected"] = hrrr_triggered
-            hrrr_summary["rap_mcs_detection"] = rap_summary
-            hrrr_summary["dual_model_gate"] = {
-                "required_models": ["HRRR", "RAP"],
-                "hrrr_triggered": hrrr_triggered,
-                "rap_triggered": rap_triggered,
-                "mcs_detected": bool(hrrr_triggered and rap_triggered),
-            }
-            hrrr_summary["mcs_detected"] = bool(hrrr_triggered and rap_triggered)
-            hrrr_summary_path.write_text(json.dumps(hrrr_summary, indent=2, default=str))
-            status["triggered"] = hrrr_summary["mcs_detected"]
-            status["mcs_eligible"] = hrrr_summary["mcs_detected"]
-            status["mcs_detection"] = {
-                "triggered": hrrr_summary["mcs_detected"],
-                "hrrr_triggered": hrrr_triggered,
-                "rap_triggered": rap_triggered,
-                "rap_ir_available": rap_summary.get("ir_available"),
-                "rap_ir_required": rap_summary.get("ir_required"),
-            }
-            status["finished_utc"] = datetime.now(timezone.utc).isoformat()
-            write_status(status_path, status)
-            return 0
-
         if args.verification_only:
             verified_path = verify_existing_realtime_predictions(
                 date=d,
@@ -3991,8 +3910,7 @@ def main(argv=None) -> int:
             return 0
         if not triggered:
             log(
-                f"No dual-model MCS trigger for {d}: HRRR={mcs_result.hrrr_triggered}, "
-                f"RAP={mcs_result.rap_triggered}, total_HRRR_objects={mcs_result.n_objects_total}, "
+                f"No HRRR MCS trigger for {d}: total_HRRR_objects={mcs_result.n_objects_total}, "
                 f"passing={mcs_result.n_objects_passing}, largest_area={mcs_result.largest_area_km2:,.0f} km^2. Exiting without ML plot."
             )
             status["finished_utc"] = datetime.now(timezone.utc).isoformat()
