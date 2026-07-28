@@ -5,7 +5,7 @@
   "definition": "Trailing 30 calendar days",
   "end_date": "20260727",
   "expected_calendar_days": 30,
-  "generated_utc": "2026-07-27T23:40:18Z",
+  "generated_utc": "2026-07-28T03:25:30Z",
   "missing_day_count": 30,
   "products": {},
   "references": {

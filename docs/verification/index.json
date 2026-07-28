@@ -3,7 +3,7 @@
   "daily_path_template": "verification/daily/{date}.json",
   "daily_record_count": 0,
   "dataset_class": "realtime-issued-verification",
-  "generated_utc": "2026-07-27T23:40:18Z",
+  "generated_utc": "2026-07-28T03:25:30Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"

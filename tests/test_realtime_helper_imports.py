@@ -64,6 +64,9 @@ def test_rap_defaults_align_with_hrrr_valid_window():
     args = parse_args(["--date", "20260727"])
     assert (args.hrrr_cycle, args.fhr_start, args.fhr_end) == ("12", 0, 24)
     assert (args.rap_cycle, args.rap_fhr_start, args.rap_fhr_end) == ("09", 3, 27)
+    assert args.mcs_cloud_duration_hours == 3
+    assert args.mcs_structural_duration_hours == 4
+    assert args.rap_structural_duration_hours == 2
     assert rap_aws_url("20260727", "09", 3).endswith(
         "/rap.20260727/rap.t09z.awp130pgrbf03.grib2"
     )

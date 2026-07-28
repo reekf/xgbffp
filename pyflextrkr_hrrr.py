@@ -365,7 +365,7 @@ def prepare_and_run_pyflextrkr(
     precipitation_threshold_dbz: float = 25.0,
     precipitation_major_axis_threshold_km: float = 100.0,
     convective_threshold_dbz: float = 45.0,
-    cloud_duration_hours: int = 6,
+    cloud_duration_hours: int = 3,
     structural_duration_hours: int = 4,
     overlap_threshold: float = 0.5,
     cell_area_km2: float = 9.0,
@@ -449,7 +449,20 @@ def prepare_and_run_pyflextrkr(
         )
         if force or not input_is_compatible:
             shutil.rmtree(input_dir, ignore_errors=True)
-        shutil.rmtree(output_dir, ignore_errors=True)
+        # Cloud identification, object linking, track numbers, and raw track
+        # statistics do not depend on the two lifecycle-duration thresholds.
+        # Preserve those expensive official-stage outputs when duration is the
+        # only signature change; downstream MCS and robust-MCS files are
+        # overwritten from the new config below.
+        tracking_keys = set(signature).difference(
+            {"cloud_duration_hours", "structural_duration_hours"}
+        )
+        tracking_is_compatible = bool(previous_signature) and all(
+            previous_signature.get(key) == signature.get(key)
+            for key in tracking_keys
+        )
+        if force or not tracking_is_compatible:
+            shutil.rmtree(output_dir, ignore_errors=True)
         result_path.unlink(missing_ok=True)
     input_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -592,9 +605,12 @@ def execute_official_pipeline(config_path: Path, result_path: Path) -> int:
             # Fewer than two usable feature times cannot form a track.
             write_json(result_path, payload)
             return 0
-        gettracknumbers(config)
+        stats_dir = Path(config["stats_outpath"])
+        if not list(stats_dir.glob("tracknumbers_*.nc")):
+            gettracknumbers(config)
         steps.append("gettracknumbers")
-        trackstats_driver(config)
+        if not list(stats_dir.glob("trackstats_*.nc")):
+            trackstats_driver(config)
         steps.append("trackstats_driver")
         try:
             mcsstats_path = identifymcs_tb(config)

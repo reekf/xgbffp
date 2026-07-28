@@ -44,7 +44,7 @@ def hrrr_summary_is_current(summary: dict, fhr_end: int) -> bool:
         and summary.get("pyflextrkr_upstream_commit") == PYFLEXTRKR_UPSTREAM_COMMIT
         and steps_are_valid
         and float(summary.get("ir_area_threshold_km2", -1)) == 60000.0
-        and int(summary.get("ir_duration_threshold_hours", -1)) == 6
+        and int(summary.get("ir_duration_threshold_hours", -1)) == 3
         and int(summary.get("structural_duration_threshold_hours", -1)) == 4
         and float(summary.get("precipitation_threshold_dbz", -1)) == 25.0
         and float(summary.get("precipitation_major_axis_threshold_km", -1)) == 100.0
@@ -72,8 +72,8 @@ def summary_is_current(summary: dict, fhr_end: int) -> bool:
         and int(rap.get("fhr_start", -1)) == 3
         and int(rap.get("fhr_end", -1)) == 27
         and float(rap.get("ir_area_threshold_km2", -1)) == 60000.0
-        and int(rap.get("ir_duration_threshold_hours", -1)) == 6
-        and int(rap.get("structural_duration_threshold_hours", -1)) == 4
+        and int(rap.get("ir_duration_threshold_hours", -1)) == 3
+        and int(rap.get("structural_duration_threshold_hours", -1)) == 2
         and float(rap.get("precipitation_threshold_dbz", -1)) == 25.0
         and float(rap.get("precipitation_major_axis_threshold_km", -1)) == 100.0
         and float(rap.get("convective_threshold_dbz", -1)) == 45.0
@@ -225,9 +225,9 @@ def main() -> int:
                     "pyflextrkr_package_version": summary.get("pyflextrkr_package_version"),
                     "pyflextrkr_upstream_commit": summary.get("pyflextrkr_upstream_commit"),
                     "official_steps_completed": summary.get("pyflextrkr_official_steps_completed", []),
-                    "cloud_shield": "SBT < 241 K and area > 60000 km2 for at least 6 continuous hours",
-                    "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours",
-                    "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours",
+                    "cloud_shield": "HRRR and RAP SBT < 241 K with area > 60000 km2 for at least 3 continuous hours",
+                    "precipitation_feature": "HRRR >=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours; RAP for at least 2 continuous hours",
+                    "convective_feature": "HRRR composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours; RAP for at least 2 continuous hours",
                     "overlap_fraction": 0.5,
                     "ir_duration_met": result["ir_duration_met"],
                     "structural_duration_met": result["structural_duration_met"],
@@ -248,7 +248,7 @@ def main() -> int:
         write_json(status_path, status)
 
     manifest = {
-        "schema_version": 3,
+        "schema_version": 4,
         "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "method": "Dual-model actual PyFLEXTRKR gate requiring independent HRRR and RAP qualification",
         "pyflextrkr_package_version": PYFLEXTRKR_PACKAGE_VERSION,
@@ -257,13 +257,14 @@ def main() -> int:
         "criteria": {
             "cloud_shield_threshold_k": 241,
             "cloud_shield_area_km2": 60000,
-            "cloud_shield_duration_hours": 6,
+            "cloud_shield_duration_hours": 3,
             "precipitation_feature_threshold_dbz": 25,
             "precipitation_feature_major_axis_km": 100,
             "convective_feature_threshold_dbz": 45,
             "reflectivity_representation": "HRRR and RAP REFC composites are independently repeated on compatibility levels to represent reflectivity exceeding 45 dBZ at any vertical level; neither is a reconstructed vertical profile",
-            "structural_duration_hours": 4,
-            "duration_definition": "Cold-cloud shield requires at least six continuous hourly samples; precipitation and convective structure require at least four continuous hourly samples",
+            "hrrr_structural_duration_hours": 4,
+            "rap_structural_duration_hours": 2,
+            "duration_definition": "Cold-cloud shield requires at least three continuous hourly samples in both models; precipitation and convective structure require at least four continuous hourly samples in HRRR and two in RAP",
             "object_overlap_fraction": 0.5,
             "qpf6_rainfall_only_diagnostic_mm": 50.8,
             "required_models": ["HRRR", "RAP"],

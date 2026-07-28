@@ -41,13 +41,13 @@ def test_config_uses_requested_modified_criteria():
         (-110, -80, 25, 50), bt_threshold_k=241,
         cloud_area_threshold_km2=60000, precipitation_threshold_dbz=25,
         precipitation_major_axis_threshold_km=100,
-        convective_threshold_dbz=45, cloud_duration_hours=6,
+        convective_threshold_dbz=45, cloud_duration_hours=3,
         structural_duration_hours=4,
         overlap_threshold=0.5, cell_area_km2=100,
     )
     assert cfg["feature_type"] == "tb_pf_radar3d"
     assert cfg["mcs_tb_area_thresh"] == 60000
-    assert cfg["mcs_tb_duration_thresh"] == 6
+    assert cfg["mcs_tb_duration_thresh"] == 3
     assert cfg["mcs_pf_majoraxis_thresh"] == 100
     assert cfg["abs_ConvThres_aml"] == 45
     assert cfg["mcs_pf_durationthresh"] == 3
@@ -75,39 +75,29 @@ def test_official_pyflextrkr_pipeline_detects_synthetic_case():
     assert result.detected
 
 
-def test_five_cloud_hours_do_not_meet_six_hour_requirement():
-    ir, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=4)
-    with tempfile.TemporaryDirectory(prefix="xgbffp-pyflex-short-", dir="/tmp") as tmp:
-        result = prepare_and_run_pyflextrkr(
-            ir, refc, lat, lon,
-            run_date="20260727", cycle="12", case_dir=Path(tmp),
-            extent=(-102, -94, 30, 36), cell_area_km2=100,
-        )
-    assert not result.ir_duration_met
-    assert not result.detected
-
-
-def test_rap_structure_only_fallback_still_requires_four_hours():
-    _, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=4)
+def test_rap_structure_only_fallback_accepts_two_hours():
+    _, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=2)
     with tempfile.TemporaryDirectory(prefix="xgbffp-pyflex-rap-no-ir-", dir="/tmp") as tmp:
         result = prepare_and_run_pyflextrkr(
             {}, refc, lat, lon,
             run_date="20260727", cycle="09", case_dir=Path(tmp),
             extent=(-102, -94, 30, 36), cell_area_km2=100,
             source_model="RAP", ir_required=False,
+            structural_duration_hours=2,
         )
     assert result.structural_duration_met
     assert result.detected
 
 
-def test_rap_structure_only_fallback_rejects_three_hours():
-    _, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=3)
+def test_rap_structure_only_fallback_rejects_one_hour():
+    _, refc, lat, lon = synthetic_frames(frame_count=5, structural_frame_count=1)
     with tempfile.TemporaryDirectory(prefix="xgbffp-pyflex-rap-short-", dir="/tmp") as tmp:
         result = prepare_and_run_pyflextrkr(
             {}, refc, lat, lon,
             run_date="20260727", cycle="09", case_dir=Path(tmp),
             extent=(-102, -94, 30, 36), cell_area_km2=100,
             source_model="RAP", ir_required=False,
+            structural_duration_hours=2,
         )
     assert not result.structural_duration_met
     assert not result.detected
@@ -116,7 +106,6 @@ def test_rap_structure_only_fallback_rejects_three_hours():
 if __name__ == "__main__":
     test_config_uses_requested_modified_criteria()
     test_official_pyflextrkr_pipeline_detects_synthetic_case()
-    test_five_cloud_hours_do_not_meet_six_hour_requirement()
-    test_rap_structure_only_fallback_still_requires_four_hours()
-    test_rap_structure_only_fallback_rejects_three_hours()
+    test_rap_structure_only_fallback_accepts_two_hours()
+    test_rap_structure_only_fallback_rejects_one_hour()
     print("Actual PyFLEXTRKR model adapter tests passed")

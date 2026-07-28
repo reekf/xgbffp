@@ -5,8 +5,8 @@
   "map_data": "map.json",
   "map_updated_utc": "2026-07-15T15:57:21Z",
   "mcs_classification": {
-    "cloud_shield": "SBT < 241 K and area > 60000 km2 for at least 6 continuous hours",
-    "convective_feature": "Composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours",
+    "cloud_shield": "HRRR and RAP SBT < 241 K with area > 60000 km2 for at least 3 continuous hours",
+    "convective_feature": "HRRR composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours; RAP for at least 2 continuous hours",
     "hrrr_criterion_met": true,
     "ir_duration_met": true,
     "max_ir_duration_hours": 25,
@@ -22,7 +22,7 @@
       "define_robust_mcs_radar"
     ],
     "overlap_fraction": 0.5,
-    "precipitation_feature": ">=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours",
+    "precipitation_feature": "HRRR >=25 dBZ connected feature with major axis >100 km for at least 4 continuous hours; RAP for at least 2 continuous hours",
     "pyflextrkr_package_version": "2026.7.0",
     "pyflextrkr_upstream_commit": "6a3a6435ee6b3a64ec411b9f2af38226d6f32850",
     "qpf6_threshold_met": true,

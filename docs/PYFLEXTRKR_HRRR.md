@@ -22,12 +22,13 @@ interpreter is installed somewhere other than the default user Conda path.
 
 - Simulated brightness temperature cold-cloud area is greater than
   60,000 km2.
-- The cold-cloud condition is present for at least six continuous hourly
+- The cold-cloud condition is present for at least three continuous hourly
   samples.
 - A collocated precipitation feature has a major-axis length greater than
-  100 km for at least four continuous hourly samples.
+  100 km for at least four continuous hourly samples in HRRR and two
+  continuous hourly samples in RAP.
 - The precipitation feature contains model composite simulated reflectivity
-  greater than 45 dBZ for the same duration.
+  greater than 45 dBZ for the corresponding model duration.
 
 HRRR uses its 12Z f00-f24 forecast and RAP uses its 09Z f03-f27 forecast, so
 both evaluate the same 12Z-to-12Z valid window. Both models must qualify for a
