@@ -1,0 +1,17 @@
+{
+  "date": "20250723",
+  "forecast_day": 2,
+  "issue_date": "20250722",
+  "map_available": true,
+  "map_data": "map.json",
+  "map_updated_utc": "2026-07-29T16:21:49Z",
+  "plot_available": false,
+  "published": true,
+  "site_updated_utc": "2026-07-29T16:21:49Z",
+  "source_class": "formal-independent-test-set",
+  "valid_end_utc": "2025-07-24T12:00:00Z",
+  "valid_period_label": "2025-07-23 12Z to 2025-07-24 12Z",
+  "valid_start_utc": "2025-07-23T12:00:00Z",
+  "verification_available": true,
+  "verification_embedded_in_map": true
+}

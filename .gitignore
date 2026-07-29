@@ -37,3 +37,9 @@ core.*
 !publish_latest_ml_output.sh
 !fetch_mping_reports.py
 !sync_daily_from_build_week_repo.sh
+
+# Same-valid-period Day-1/Day-2 comparison backfill and regression test.
+!generate_day2_test_archive.py
+!tests/
+tests/*
+!tests/test_forecast_comparison.js

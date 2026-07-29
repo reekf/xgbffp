@@ -102,22 +102,28 @@ for day in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
     if not path.exists():
         continue
     status = json.loads(path.read_text())
+    plot_exists = (day / "latest.png").exists()
+    map_exists = (day / "map.json").exists()
+    verification_plot_exists = (day / "verification.png").exists()
+    verification_embedded_in_map = bool(status.get("verification_embedded_in_map", False))
     entries.append({
         "date": status.get("date", day.name),
         "issue_date": status.get("issue_date", ""),
         "forecast_day": 2,
         "valid_period_label": status.get("valid_period_label", ""),
         "published": bool(status.get("published")),
-        "plot_available": (day / "latest.png").exists(),
-        "map_available": (day / "map.json").exists(),
-        "verification_available": (day / "verification.png").exists(),
+        "plot_available": bool(plot_exists and status.get("plot_available", True)),
+        "map_available": bool(map_exists and status.get("map_available", True)),
+        "verification_available": bool(verification_plot_exists or verification_embedded_in_map),
+        "verification_embedded_in_map": verification_embedded_in_map,
+        "source_class": status.get("source_class", "realtime"),
         "site_updated_utc": status.get("site_updated_utc", ""),
         "map_updated_utc": status.get("map_updated_utc", ""),
         "verification_updated_utc": status.get("verification_updated_utc", ""),
         "status_href": f"day2/archive/{day.name}/status.json",
-        "plot_href": f"day2/archive/{day.name}/latest.png",
-        "map_href": f"day2/archive/{day.name}/map.json",
-        "verification_plot_href": f"day2/archive/{day.name}/verification.png" if (day / "verification.png").exists() else None,
+        "plot_href": f"day2/archive/{day.name}/latest.png" if plot_exists else None,
+        "map_href": f"day2/archive/{day.name}/map.json" if map_exists else None,
+        "verification_plot_href": f"day2/archive/{day.name}/verification.png" if verification_plot_exists else None,
     })
 (root / "index.json").write_text(json.dumps({
     "forecast_day": 2,

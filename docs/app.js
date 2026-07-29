@@ -125,7 +125,13 @@ const SIGNED_METRICS = new Set(["ets", "risk_occurrence_ets"]);
 const state = {
   forecastDay: 1,
   archive: [],
+  day2Archive: null,
   data: null,
+  previousDay2Data: null,
+  previousDay2Entry: null,
+  comparisonBlend: 100,
+  comparisonRequest: 0,
+  comparisonStatus: "checking",
   selected: "ml_r60",
   contours: new Set(),
   observations: new Set(),
@@ -207,6 +213,133 @@ function horizonAsset(path) {
   return `${horizonRoot()}${path}`;
 }
 
+function comparisonLayerAvailable() {
+  return Boolean(
+    state.forecastDay === 1
+    && state.previousDay2Data?.layers?.[state.selected]
+    && state.data?.layers?.[state.selected]
+    && state.selected !== "pp"
+    && !state.selectedPredictor
+    && state.viewMode === "2d"
+  );
+}
+
+function activeComparisonWeights() {
+  return comparisonLayerAvailable()
+    ? window.XGBFFPForecastComparison.blendWeights(state.comparisonBlend)
+    : { day1: 1, day2: 0 };
+}
+
+function comparisonBlendLabel() {
+  const { day1, day2 } = window.XGBFFPForecastComparison.blendWeights(state.comparisonBlend);
+  if (day1 >= 1) return "Current Day 1";
+  if (day2 >= 1) return "Previous Day 2";
+  return `Day 2 ${Math.round(day2 * 100)}% · Day 1 ${Math.round(day1 * 100)}%`;
+}
+
+function displayDate(value) {
+  const normalized = window.XGBFFPForecastComparison.normalizeDate(value);
+  return /^\d{8}$/.test(normalized)
+    ? `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`
+    : String(value || "unknown");
+}
+
+function updateForecastComparisonUI() {
+  const panel = document.getElementById("forecast-comparison");
+  const slider = document.getElementById("forecast-comparison-slider");
+  const output = document.getElementById("forecast-comparison-value");
+  const status = document.getElementById("forecast-comparison-status");
+  const day2Label = document.getElementById("forecast-comparison-day2-label");
+  panel.hidden = state.forecastDay !== 1;
+  if (panel.hidden) return;
+
+  slider.value = String(state.comparisonBlend);
+  const hasPrior = Boolean(state.previousDay2Data && state.previousDay2Entry);
+  const available = comparisonLayerAvailable();
+  slider.disabled = !available;
+  panel.classList.toggle("is-unavailable", !available);
+  output.textContent = hasPrior ? comparisonBlendLabel() : "Day 1 only";
+  day2Label.textContent = hasPrior
+    ? `Previous Day 2 · issued ${displayDate(state.previousDay2Entry.issue_date || state.previousDay2Data.issue_date)}`
+    : "Previous Day 2";
+
+  if (!hasPrior) {
+    status.textContent = state.comparisonStatus === "error"
+      ? "The Day‑2 archive could not be checked. The Day‑1 forecast remains available."
+      : state.comparisonStatus === "checking"
+        ? "Checking for the prior Day‑2 forecast with this valid period…"
+        : "No archived prior Day‑2 forecast is available for this valid period.";
+    return;
+  }
+  if (state.viewMode !== "2d") {
+    status.textContent = "Forecast evolution is available in the 2D view; the 3D surface remains the current Day‑1 forecast.";
+    return;
+  }
+  if (state.selectedPredictor) {
+    status.textContent = "Turn off the predictor overlay to compare the two forecasts.";
+    return;
+  }
+  if (state.selected === "pp") {
+    status.textContent = "Select an ML or WPC forecast to compare. Practically Perfect remains available as a contour overlay.";
+    return;
+  }
+  if (!state.previousDay2Data.layers?.[state.selected]) {
+    status.textContent = "This product is not available in the matching Day‑2 forecast.";
+    return;
+  }
+  const verificationNote = state.data?.layers?.pp
+    ? " Practically Perfect can be enabled under Contour overlays."
+    : "";
+  status.textContent = `Both forecasts verify during ${state.data.valid_period_label}. Radar and LSR availability remain tied to this Day‑1 valid period.${verificationNote}`;
+}
+
+async function ensureDay2Archive() {
+  if (Array.isArray(state.day2Archive)) return state.day2Archive;
+  const response = await fetch(`day2/archive/index.json?v=${Date.now()}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Day 2 archive index unavailable (${response.status})`);
+  const payload = await response.json();
+  state.day2Archive = Array.isArray(payload) ? payload : payload.entries || [];
+  return state.day2Archive;
+}
+
+async function loadPreviousDay2Forecast() {
+  const request = ++state.comparisonRequest;
+  state.previousDay2Data = null;
+  state.previousDay2Entry = null;
+  state.comparisonBlend = 100;
+  state.comparisonStatus = state.forecastDay === 1 ? "checking" : "unavailable";
+  updateForecastComparisonUI();
+  if (state.forecastDay !== 1 || !state.data?.date) return;
+
+  try {
+    const entries = await ensureDay2Archive();
+    if (request !== state.comparisonRequest) return;
+    const entry = window.XGBFFPForecastComparison.findMatchingDay2Entry(entries, state.data.date);
+    if (!entry) {
+      state.comparisonStatus = "unavailable";
+      updateForecastComparisonUI();
+      return;
+    }
+    const mapHref = entry.map_href || `day2/archive/${entry.date}/map.json`;
+    const version = entry.map_updated_utc || entry.site_updated_utc || Date.now();
+    const response = await fetch(`${mapHref}?v=${encodeURIComponent(version)}-${MAP_DATA_VERSION}`);
+    if (!response.ok) throw new Error(`Matching Day 2 map unavailable (${response.status})`);
+    const previous = await response.json();
+    if (request !== state.comparisonRequest || String(state.data?.date) !== String(entry.date)) return;
+    if (!window.XGBFFPForecastComparison.sameValidPeriod(state.data, previous)) {
+      throw new Error("Matching Day 2 map has a different valid period");
+    }
+    state.previousDay2Data = previous;
+    state.previousDay2Entry = entry;
+    state.comparisonStatus = "available";
+  } catch (error) {
+    if (request !== state.comparisonRequest) return;
+    state.comparisonStatus = "error";
+    console.warn(error.message);
+  }
+  updateForecastComparisonUI();
+}
+
 const map = L.map("map", {
   zoomControl: false,
   preferCanvas: true,
@@ -218,8 +351,12 @@ const map = L.map("map", {
   wheelDebounceTime: 20,
 }).setView([39.5, -92.5], 5);
 
+map.createPane("forecastPriorPane");
+map.getPane("forecastPriorPane").style.zIndex = 349;
+map.getPane("forecastPriorPane").style.pointerEvents = "none";
 map.createPane("forecastPane");
 map.getPane("forecastPane").style.zIndex = 350;
+map.getPane("forecastPane").style.pointerEvents = "none";
 map.createPane("radarPane");
 map.getPane("radarPane").style.zIndex = 365;
 map.getPane("radarPane").style.pointerEvents = "none";
@@ -279,6 +416,7 @@ fetch("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geo
   .catch((error) => console.warn(error.message));
 
 const canvasRenderer = L.canvas({ pane: "forecastPane", padding: 0.4, tolerance: 3 });
+const priorCanvasRenderer = L.canvas({ pane: "forecastPriorPane", padding: 0.4, tolerance: 3 });
 
 function colorRgba(hex, alpha = 255) {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -913,6 +1051,7 @@ function setViewMode(mode) {
   document.getElementById("predictor-legend").hidden = mode !== "2d" || !state.selectedPredictor;
   document.getElementById("point-gap-control").hidden = mode !== "3d";
   updateContinuousProbabilityUI();
+  updateForecastComparisonUI();
   if (mode === "3d" && (state.radarEnabled || state.singleRadarEnabled)) {
     document.getElementById("radar-status").textContent = "Radar overlays are available in 2D view.";
   }
@@ -1040,6 +1179,26 @@ function productProbabilityRows(index) {
   });
 }
 
+function previousDay2ProductAtLocation(key, latitude, longitude) {
+  if (!state.previousDay2Data?.layers?.[key] || key === "pp") return null;
+  const nearest = window.XGBFFPBriefing.nearestGridPoint(
+    state.previousDay2Data.grid,
+    latitude,
+    longitude,
+    BRIEFING_MAX_GRID_DISTANCE_KM,
+  );
+  if (!nearest) return null;
+  const probability = window.XGBFFPBriefing.probabilityPercent(
+    state.previousDay2Data.layers[key],
+    nearest.index,
+  );
+  return {
+    ...nearest,
+    probability,
+    category: window.XGBFFPBriefing.riskCategory(probability),
+  };
+}
+
 function deterministicBriefingInterpretation(agreement, wpcCategory, ppProbability) {
   if (!agreement) {
     return "Standard ML radius guidance is not available at this archived grid point.";
@@ -1114,6 +1273,49 @@ function renderLocationBriefing() {
   }
   probabilitySection.append(probabilityHeading, probabilityList);
   content.append(probabilitySection);
+
+  const activeRow = rows.find((row) => row.key === state.selected);
+  const previousDay2 = previousDay2ProductAtLocation(state.selected, latitude, longitude);
+  if (previousDay2 && activeRow) {
+    const evolutionSection = document.createElement("section");
+    const evolutionHeading = document.createElement("h3");
+    evolutionHeading.textContent = "Forecast evolution at this point";
+    const evolutionList = document.createElement("dl");
+    evolutionList.className = "briefing-data-list";
+    const priorSuffix = previousDay2.category.rank >= 0 ? ` · ${previousDay2.category.label}` : "";
+    const currentSuffix = activeRow.category.rank >= 0 ? ` · ${activeRow.category.label}` : "";
+    addDefinitionListRow(
+      evolutionList,
+      `Previous Day 2 · issued ${displayDate(state.previousDay2Entry?.issue_date || state.previousDay2Data.issue_date)}`,
+      `${formatBriefingProbability(previousDay2.probability)}${priorSuffix}`,
+    );
+    addDefinitionListRow(
+      evolutionList,
+      "Current Day 1",
+      `${formatBriefingProbability(activeRow.probability)}${currentSuffix}`,
+      "active-product-row",
+    );
+    if (Number.isFinite(previousDay2.probability) && Number.isFinite(activeRow.probability)) {
+      const difference = activeRow.probability - previousDay2.probability;
+      addDefinitionListRow(
+        evolutionList,
+        "Day 1 change",
+        `${difference >= 0 ? "+" : ""}${difference.toFixed(1)} percentage points`,
+      );
+    }
+    if (Number.isFinite(pp?.probability)) {
+      addDefinitionListRow(
+        evolutionList,
+        "Practically Perfect",
+        `${formatBriefingProbability(pp.probability)} · ${pp.category.label}`,
+      );
+    }
+    const evolutionNote = document.createElement("p");
+    evolutionNote.className = "briefing-note";
+    evolutionNote.textContent = `Both forecasts cover ${state.data.valid_period_label}. Move the map slider to compare their full spatial placement.`;
+    evolutionSection.append(evolutionHeading, evolutionList, evolutionNote);
+    content.append(evolutionSection);
+  }
 
   const agreementSection = document.createElement("section");
   const agreementHeading = document.createElement("h3");
@@ -1767,8 +1969,41 @@ function setMessage(key) {
   const display = continuousProbabilityActive()
     ? " The 2D fill uses the continuous raw ML probability scale."
     : "";
-  document.getElementById("product-message").textContent = `${PRODUCT_META[key]?.note || ""}${prediction}${display}`;
+  const comparison = comparisonLayerAvailable()
+    ? ` The forecast-evolution slider is showing ${comparisonBlendLabel().toLowerCase()} for the same valid period.`
+    : "";
+  document.getElementById("product-message").textContent = `${PRODUCT_META[key]?.note || ""}${prediction}${display}${comparison}`;
   setProductMessageExpanded(false);
+}
+
+function applyForecastFillOpacity() {
+  const weights = activeComparisonWeights();
+  map.getPane("forecastPane").style.opacity = String(state.fillOpacity * weights.day1);
+  map.getPane("forecastPriorPane").style.opacity = String(state.fillOpacity * weights.day2);
+}
+
+function add2dForecastFill(group, data, key, continuous, radius, pane, renderer) {
+  const values = data?.layers?.[key]?.values;
+  const lat = data?.grid?.lat;
+  const lon = data?.grid?.lon;
+  if (!values || !lat || !lon) return;
+  for (let index = 0; index < values.length; index += 1) {
+    const encodedValue = Number(values[index]) || 0;
+    const color = continuous
+      ? (encodedValue > 0 ? continuousRiskCss(encodedValue) : null)
+      : riskColor(encodedValue);
+    if (!color) continue;
+    L.circleMarker([lat[index], lon[index]], {
+      pane,
+      renderer,
+      radius,
+      stroke: false,
+      fill: true,
+      fillColor: color,
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(group);
+  }
 }
 
 function renderFilledLayer() {
@@ -1779,6 +2014,7 @@ function renderFilledLayer() {
   const probabilityLegend = document.getElementById("probability-legend");
   probabilityLegend.hidden = Boolean(state.selectedPredictor);
   updateContinuousProbabilityUI();
+  updateForecastComparisonUI();
   if (state.selectedPredictor) return;
   if (!state.data || !state.data.layers[state.selected]) return;
   if (state.viewMode === "3d") {
@@ -1787,32 +2023,30 @@ function renderFilledLayer() {
     return;
   }
 
-  const values = state.data.layers[state.selected].values;
-  const lat = state.data.grid.lat;
-  const lon = state.data.grid.lon;
   const group = L.layerGroup();
   const radius = Math.max(2.2, Math.min(4.2, 2.2 + (map.getZoom() - 4) * 0.35));
   const continuous = continuousProbabilityActive();
-
-  for (let index = 0; index < values.length; index += 1) {
-    const encodedValue = Number(values[index]) || 0;
-    const color = continuous
-      ? (encodedValue > 0 ? continuousRiskCss(encodedValue) : null)
-      : riskColor(encodedValue);
-    if (!color) continue;
-    L.circleMarker([lat[index], lon[index]], {
-      pane: "forecastPane",
-      renderer: canvasRenderer,
-      radius,
-      stroke: false,
-      fill: true,
-      fillColor: color,
-      fillOpacity: state.fillOpacity,
-      interactive: false,
-    }).addTo(group);
-  }
+  add2dForecastFill(
+    group,
+    state.previousDay2Data,
+    state.selected,
+    continuous,
+    radius,
+    "forecastPriorPane",
+    priorCanvasRenderer,
+  );
+  add2dForecastFill(
+    group,
+    state.data,
+    state.selected,
+    continuous,
+    radius,
+    "forecastPane",
+    canvasRenderer,
+  );
 
   state.fillLayer = group.addTo(map);
+  applyForecastFillOpacity();
   setMessage(state.selected);
 }
 
@@ -2376,8 +2610,15 @@ function buildLayerControls() {
 
 function updateDateUI(entry) {
   document.getElementById("valid-period").textContent = `Valid ${state.data.valid_period_label}`;
-  const staticHref = entry?.plot_href || `${horizonRoot()}archive/${state.data.date}/latest.png`;
-  document.getElementById("current-png-link").href = `${staticHref}?v=${encodeURIComponent(entry?.site_updated_utc || state.data.generated_utc)}`;
+  const pngLink = document.getElementById("current-png-link");
+  if (entry?.plot_available === false) {
+    pngLink.hidden = true;
+    pngLink.removeAttribute("href");
+  } else {
+    const staticHref = entry?.plot_href || `${horizonRoot()}archive/${state.data.date}/latest.png`;
+    pngLink.href = `${staticHref}?v=${encodeURIComponent(entry?.site_updated_utc || state.data.generated_utc)}`;
+    pngLink.hidden = false;
+  }
   const verificationLink = document.getElementById("current-verification-link");
   if (entry?.verification_available && entry.verification_plot_href) {
     verificationLink.href = `${entry.verification_plot_href}?v=${encodeURIComponent(entry.verification_updated_utc || entry.site_updated_utc || state.data.generated_utc)}`;
@@ -2397,6 +2638,12 @@ async function loadDate(date, fit = false) {
       `${date} is excluded from maps and verification: ${entry.mcs_classification_label || "Non-MCS-associated precipitation"}.`;
     return;
   }
+  state.comparisonRequest += 1;
+  state.previousDay2Data = null;
+  state.previousDay2Entry = null;
+  state.comparisonBlend = 100;
+  state.comparisonStatus = state.forecastDay === 1 ? "checking" : "unavailable";
+  updateForecastComparisonUI();
   showLoading(`Loading ${date}…`);
   try {
     const mapVersion = `${entry?.map_updated_utc || entry?.site_updated_utc || Date.now()}-${MAP_DATA_VERSION}`;
@@ -2414,6 +2661,7 @@ async function loadDate(date, fit = false) {
     if (state.selectedPredictor && !state.data.predictors?.[`r${state.selectedPredictorRadius}`]?.[state.selectedPredictor]) {
       state.selectedPredictor = null;
     }
+    await loadPreviousDay2Forecast();
     buildLayerControls();
     renderFilledLayer();
     renderPredictorLayer();
@@ -2510,6 +2758,8 @@ function populateArchive() {
         ? "Forecast and Practically Perfect verification in one image"
         : "Open Practically Perfect verification image";
       verificationCell.append(link);
+    } else if (entry.verification_embedded_in_map && !excludedNonMcs) {
+      verificationCell.textContent = "On interactive map";
     } else {
       verificationCell.textContent = excludedNonMcs ? "Excluded from skill" : "Pending";
       verificationCell.className = "pending-cell";
@@ -3119,7 +3369,15 @@ const opacityOutput = document.getElementById("fill-opacity-value");
 opacityInput.addEventListener("input", () => {
   state.fillOpacity = Number(opacityInput.value) / 100;
   opacityOutput.value = `${opacityInput.value}%`;
-  renderFilledLayer();
+  if (state.viewMode === "3d") schedule3dRender();
+  else applyForecastFillOpacity();
+});
+
+document.getElementById("forecast-comparison-slider").addEventListener("input", (event) => {
+  state.comparisonBlend = Number(event.currentTarget.value);
+  applyForecastFillOpacity();
+  updateForecastComparisonUI();
+  setMessage(state.selected);
 });
 
 document.getElementById("continuous-probability-toggle").addEventListener("change", (event) => {
@@ -3160,7 +3418,13 @@ window.addEventListener("popstate", () => {
 async function loadForecastHorizon(day, requestedDate = null, updateHistory = true) {
   const nextDay = Number(day) === 2 ? 2 : 1;
   state.forecastDay = nextDay;
+  state.comparisonRequest += 1;
+  state.previousDay2Data = null;
+  state.previousDay2Entry = null;
+  state.comparisonBlend = 100;
+  state.comparisonStatus = nextDay === 1 ? "checking" : "unavailable";
   document.getElementById("forecast-day-select").value = String(nextDay);
+  updateForecastComparisonUI();
   state.skillManifest = null;
   state.riskOccurrence = null;
   state.runningVerification = null;
@@ -3172,6 +3436,7 @@ async function loadForecastHorizon(day, requestedDate = null, updateHistory = tr
   if (!response.ok) throw new Error(`Day ${nextDay} archive index unavailable`);
   const archive = await response.json();
   state.archive = Array.isArray(archive) ? archive : archive.entries || [];
+  if (nextDay === 2) state.day2Archive = state.archive;
   populateDates();
   populateArchive();
   const initial = state.archive.find((entry) => String(entry.date) === String(requestedDate) && entry.map_available !== false && entry.mcs_eligible !== false)

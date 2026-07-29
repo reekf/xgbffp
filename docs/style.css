@@ -293,6 +293,55 @@ button { cursor: pointer; }
 
 .product-options, .contour-options, .observation-options, .predictor-options { display: grid; gap: 5px; }
 
+.forecast-comparison {
+  margin: 9px 0 11px;
+  padding: 10px;
+  background: linear-gradient(110deg, rgba(69, 124, 158, 0.14), rgba(13, 17, 21, 0.96));
+  border: 1px solid #3c5260;
+}
+
+.forecast-comparison-heading,
+.forecast-comparison-endpoints {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.forecast-comparison-heading {
+  align-items: baseline;
+  color: #dce7ed;
+  font-size: 0.67rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.forecast-comparison-heading output {
+  color: #a9d8ff;
+  font-size: 0.61rem;
+  letter-spacing: 0;
+  text-align: right;
+  text-transform: none;
+}
+
+.forecast-comparison input[type="range"] {
+  width: 100%;
+  margin: 10px 0 6px;
+  accent-color: #a9d8ff;
+}
+
+.forecast-comparison-endpoints {
+  align-items: flex-start;
+  color: #b9c3c9;
+  font-size: 0.57rem;
+  line-height: 1.35;
+}
+
+.forecast-comparison-endpoints span { max-width: 47%; }
+.forecast-comparison-endpoints span:last-child { text-align: right; }
+.forecast-comparison .availability-note { margin-bottom: 0; }
+.forecast-comparison.is-unavailable { border-color: #2b3338; opacity: 0.62; }
+.forecast-comparison.is-unavailable input { cursor: not-allowed; }
+
 .layer-section {
   border-top: 1px solid var(--line);
 }
