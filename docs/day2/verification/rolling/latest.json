@@ -1,7 +1,7 @@
 {
   "dataset_class": "realtime-issued-verification",
   "forecast_day": 2,
-  "generated_utc": "2026-07-28T22:28:05Z",
+  "generated_utc": "2026-07-29T16:06:32Z",
   "schema_version": 4,
   "windows": {
     "monthly": {
@@ -9,10 +9,10 @@
       "dataset_class": "realtime-issued-verification",
       "default_reference": "practically_perfect",
       "definition": "Trailing 30 calendar days",
-      "end_date": "20260729",
+      "end_date": "20260730",
       "expected_calendar_days": 30,
       "forecast_day": 2,
-      "generated_utc": "2026-07-28T22:28:05Z",
+      "generated_utc": "2026-07-29T16:06:32Z",
       "missing_day_count": 30,
       "products": {},
       "references": {
@@ -28,7 +28,7 @@
         }
       },
       "schema_version": 4,
-      "start_date": "20260630",
+      "start_date": "20260701",
       "verification_target": "Practically Perfect (smoothed any-flood-proxy field)",
       "verified_dates": [],
       "verified_forecast_count": 0,
@@ -39,11 +39,11 @@
       "dataset_class": "realtime-issued-verification",
       "default_reference": "practically_perfect",
       "definition": "JJA meteorological season to date",
-      "end_date": "20260729",
-      "expected_calendar_days": 59,
+      "end_date": "20260730",
+      "expected_calendar_days": 60,
       "forecast_day": 2,
-      "generated_utc": "2026-07-28T22:28:05Z",
-      "missing_day_count": 59,
+      "generated_utc": "2026-07-29T16:06:32Z",
+      "missing_day_count": 60,
       "products": {},
       "references": {
         "practically_perfect": {
