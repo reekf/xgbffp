@@ -139,11 +139,9 @@ def load_historical(date: str) -> pd.DataFrame:
 
 
 def _preferred_realtime_forecast(date: str) -> Path:
-    # Verification output is a superset of the day-zero forecast: it carries
-    # the same member probabilities plus the PP fields. Prefer it when present.
-    verification = _realtime_verification(date)
-    if verification is not None:
-        return verification
+    # Keep the issued forecast as the authoritative source for forecast and
+    # WPC layers. Verification parquets intentionally contain PP/UFVS fields
+    # but do not necessarily repeat WPC_ERO_Risk.
     exact = REALTIME_DIR / f"realtime_verified_v33_multiradius_r40_r60_r75_r100_{date}.parquet"
     if exact.exists():
         return exact
@@ -152,9 +150,12 @@ def _preferred_realtime_forecast(date: str) -> Path:
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )
-    if not candidates:
-        raise RuntimeError(f"No realtime multi-radius forecast parquet for {date}")
-    return candidates[0]
+    if candidates:
+        return candidates[0]
+    verification = _realtime_verification(date)
+    if verification is not None:
+        return verification
+    raise RuntimeError(f"No realtime multi-radius forecast parquet for {date}")
 
 
 def _realtime_verification(date: str) -> Path | None:
@@ -174,14 +175,22 @@ def load_realtime(date: str) -> pd.DataFrame:
     verification_path = _realtime_verification(date)
     if verification_path is not None:
         verification = pd.read_parquet(verification_path)
-        pp_columns = [column for column in verification.columns if column == "PP_Any flood proxy"]
-        if pp_columns:
-            base = _merge_aligned(base, verification, pp_columns)
+        verification_columns = [
+            column
+            for column in ("PP_Any flood proxy", "UFVS_ANY")
+            if column in verification.columns
+        ]
+        if verification_columns:
+            base = _merge_aligned(base, verification, verification_columns)
     if "WPC_ERO_Risk" not in base.columns:
+        wpc_candidates = []
+        for pattern in (
+            f"wpc_ero_day1_issue{date}_valid{date}_12to12_*rows.parquet",
+            f"wpc_ero_risk_grid_{date}_valid12to12_*rows.parquet",
+        ):
+            wpc_candidates.extend(REALTIME_WPC_DIR.glob(pattern))
         wpc_candidates = sorted(
-            REALTIME_WPC_DIR.glob(f"wpc_ero_risk_grid_{date}_valid12to12_*rows.parquet"),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
+            set(wpc_candidates), key=lambda path: path.stat().st_mtime, reverse=True
         )
         if wpc_candidates:
             wpc = pd.read_parquet(wpc_candidates[0])

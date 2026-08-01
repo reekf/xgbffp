@@ -275,5 +275,15 @@ else
   fi
 fi
 
+# Cron does not replay jobs missed while the workstation is asleep. Once the
+# current forecast is safely published, backfill any recent forecast archive
+# that still lacks post-event verification. A catch-up failure is non-fatal to
+# today's forecast publish; the dedicated verification cron will retry it.
+if [[ "${VERIFY_CATCHUP:-1}" == "1" ]]; then
+  if ! PUBLISH_GIT="$PUBLISH_GIT" ./publish_missing_verification_outputs.sh; then
+    echo "WARNING: one or more recent verification backfills failed; they will be retried." >&2
+  fi
+fi
+
 echo
 echo "Done UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
