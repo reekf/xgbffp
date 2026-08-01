@@ -333,6 +333,72 @@
         "squared_error_sum": 156.914632,
         "truth_positive_count": 0
       }
+    },
+    "wpc": {
+      "15": {
+        "brier_score": 0.07182171,
+        "correct_negatives": 25179,
+        "csi": 0.15633673,
+        "ets": 0.14572316,
+        "false_alarms": 2,
+        "far": 0.00588235,
+        "forecast_positive_count": 340,
+        "frequency_bias": 0.15740741,
+        "hits": 338,
+        "misses": 1822,
+        "pod": 0.15648148,
+        "sample_count": 27341,
+        "squared_error_sum": 1963.6775,
+        "truth_positive_count": 2160
+      },
+      "40": {
+        "brier_score": 0.009922,
+        "correct_negatives": 27032,
+        "csi": 0.0,
+        "ets": 0.0,
+        "false_alarms": 0,
+        "far": null,
+        "forecast_positive_count": 0,
+        "frequency_bias": 0.0,
+        "hits": 0,
+        "misses": 309,
+        "pod": 0.0,
+        "sample_count": 27341,
+        "squared_error_sum": 271.2775,
+        "truth_positive_count": 309
+      },
+      "5": {
+        "brier_score": 0.22774505,
+        "correct_negatives": 18749,
+        "csi": 0.25814711,
+        "ets": 0.15768812,
+        "false_alarms": 2093,
+        "far": 0.4855022,
+        "forecast_positive_count": 4311,
+        "frequency_bias": 0.66333282,
+        "hits": 2218,
+        "misses": 4281,
+        "pod": 0.34128327,
+        "sample_count": 27341,
+        "squared_error_sum": 6226.7775,
+        "truth_positive_count": 6499
+      },
+      "70": {
+        "brier_score": 0.0006429,
+        "correct_negatives": 27341,
+        "csi": null,
+        "ets": null,
+        "false_alarms": 0,
+        "far": null,
+        "forecast_positive_count": 0,
+        "frequency_bias": null,
+        "hits": 0,
+        "misses": 0,
+        "pod": null,
+        "sample_count": 27341,
+        "squared_error_sum": 17.5775,
+        "truth_positive_count": 0
+      }
     }
   },
   "references": {
@@ -666,6 +732,72 @@
             "pod": null,
             "sample_count": 27341,
             "squared_error_sum": 156.914632,
+            "truth_positive_count": 0
+          }
+        },
+        "wpc": {
+          "15": {
+            "brier_score": 0.07182171,
+            "correct_negatives": 25179,
+            "csi": 0.15633673,
+            "ets": 0.14572316,
+            "false_alarms": 2,
+            "far": 0.00588235,
+            "forecast_positive_count": 340,
+            "frequency_bias": 0.15740741,
+            "hits": 338,
+            "misses": 1822,
+            "pod": 0.15648148,
+            "sample_count": 27341,
+            "squared_error_sum": 1963.6775,
+            "truth_positive_count": 2160
+          },
+          "40": {
+            "brier_score": 0.009922,
+            "correct_negatives": 27032,
+            "csi": 0.0,
+            "ets": 0.0,
+            "false_alarms": 0,
+            "far": null,
+            "forecast_positive_count": 0,
+            "frequency_bias": 0.0,
+            "hits": 0,
+            "misses": 309,
+            "pod": 0.0,
+            "sample_count": 27341,
+            "squared_error_sum": 271.2775,
+            "truth_positive_count": 309
+          },
+          "5": {
+            "brier_score": 0.22774505,
+            "correct_negatives": 18749,
+            "csi": 0.25814711,
+            "ets": 0.15768812,
+            "false_alarms": 2093,
+            "far": 0.4855022,
+            "forecast_positive_count": 4311,
+            "frequency_bias": 0.66333282,
+            "hits": 2218,
+            "misses": 4281,
+            "pod": 0.34128327,
+            "sample_count": 27341,
+            "squared_error_sum": 6226.7775,
+            "truth_positive_count": 6499
+          },
+          "70": {
+            "brier_score": 0.0006429,
+            "correct_negatives": 27341,
+            "csi": null,
+            "ets": null,
+            "false_alarms": 0,
+            "far": null,
+            "forecast_positive_count": 0,
+            "frequency_bias": null,
+            "hits": 0,
+            "misses": 0,
+            "pod": null,
+            "sample_count": 27341,
+            "squared_error_sum": 17.5775,
             "truth_positive_count": 0
           }
         }
@@ -1002,6 +1134,72 @@
             "pod": 0.0,
             "sample_count": 27341,
             "squared_error_sum": 984.672632,
+            "truth_positive_count": 1090
+          }
+        },
+        "wpc": {
+          "15": {
+            "brier_score": 0.03732042,
+            "correct_negatives": 26046,
+            "csi": 0.1042471,
+            "ets": 0.09477211,
+            "false_alarms": 205,
+            "far": 0.60294118,
+            "forecast_positive_count": 340,
+            "frequency_bias": 0.31192661,
+            "hits": 135,
+            "misses": 955,
+            "pod": 0.12385321,
+            "sample_count": 27341,
+            "squared_error_sum": 1020.3775,
+            "truth_positive_count": 1090
+          },
+          "40": {
+            "brier_score": 0.03732042,
+            "correct_negatives": 26251,
+            "csi": 0.0,
+            "ets": 0.0,
+            "false_alarms": 0,
+            "far": null,
+            "forecast_positive_count": 0,
+            "frequency_bias": 0.0,
+            "hits": 0,
+            "misses": 1090,
+            "pod": 0.0,
+            "sample_count": 27341,
+            "squared_error_sum": 1020.3775,
+            "truth_positive_count": 1090
+          },
+          "5": {
+            "brier_score": 0.03732042,
+            "correct_negatives": 22542,
+            "csi": 0.1254428,
+            "ets": 0.09295904,
+            "false_alarms": 3709,
+            "far": 0.86035723,
+            "forecast_positive_count": 4311,
+            "frequency_bias": 3.95504587,
+            "hits": 602,
+            "misses": 488,
+            "pod": 0.55229358,
+            "sample_count": 27341,
+            "squared_error_sum": 1020.3775,
+            "truth_positive_count": 1090
+          },
+          "70": {
+            "brier_score": 0.03732042,
+            "correct_negatives": 26251,
+            "csi": 0.0,
+            "ets": 0.0,
+            "false_alarms": 0,
+            "far": null,
+            "forecast_positive_count": 0,
+            "frequency_bias": 0.0,
+            "hits": 0,
+            "misses": 1090,
+            "pod": 0.0,
+            "sample_count": 27341,
+            "squared_error_sum": 1020.3775,
             "truth_positive_count": 1090
           }
         }

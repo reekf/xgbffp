@@ -3,7 +3,7 @@
   "latest_plot": "latest.png",
   "map_available": true,
   "map_data": "map.json",
-  "map_updated_utc": "2026-07-29T13:51:14Z",
+  "map_updated_utc": "2026-08-01T19:59:52Z",
   "mcs_classification": {
     "cloud_shield": "HRRR SBT < 241 K with area >60000 km2 for at least 3 continuous hours",
     "convective_feature": "HRRR composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours",
@@ -41,5 +41,8 @@
   "site_updated_utc": "2026-07-29T13:51:14Z",
   "valid_end_utc": "2026-07-30T12:00:00Z",
   "valid_period_label": "2026-07-29 12Z to 2026-07-30 12Z",
-  "valid_start_utc": "2026-07-29T12:00:00Z"
+  "valid_start_utc": "2026-07-29T12:00:00Z",
+  "verification_available": true,
+  "verification_plot": "verification.png",
+  "verification_updated_utc": "2026-08-01T19:59:52Z"
 }
