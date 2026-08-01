@@ -5,7 +5,7 @@
   "latest_plot": "latest.png",
   "map_available": true,
   "map_data": "map.json",
-  "map_updated_utc": "2026-07-29T14:16:32Z",
+  "map_updated_utc": "2026-08-01T20:22:34Z",
   "mcs_eligible": true,
   "plot_available": true,
   "product_description": "XGBFFP Day-2 r40/r60/r75/r100 models, ensemble mean, and WPC Day-2 ERO.",
@@ -13,5 +13,8 @@
   "site_updated_utc": "2026-07-29T14:16:32Z",
   "valid_end_utc": "2026-07-31T12:00:00Z",
   "valid_period_label": "2026-07-30 12Z to 2026-07-31 12Z",
-  "valid_start_utc": "2026-07-30T12:00:00Z"
+  "valid_start_utc": "2026-07-30T12:00:00Z",
+  "verification_available": true,
+  "verification_plot": "verification.png",
+  "verification_updated_utc": "2026-08-01T20:22:34Z"
 }

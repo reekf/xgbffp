@@ -1,12 +1,13 @@
 {
   "daily_dates": [
-    "20260729"
+    "20260729",
+    "20260730"
   ],
   "daily_path_template": "verification/daily/{date}.json",
-  "daily_record_count": 1,
+  "daily_record_count": 2,
   "dataset_class": "realtime-issued-verification",
   "forecast_day": 2,
-  "generated_utc": "2026-07-30T16:16:26Z",
+  "generated_utc": "2026-08-01T20:22:01Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"
