@@ -54,6 +54,26 @@ MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/matplotlib-cache}" python "$SOURCE_DIR/genera
   --input-parquet "$DATA_SRC" \
   --output "$ARCHIVE_DIR/map.json"
 
+python - "$ARCHIVE_DIR/map.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+payload = json.loads(path.read_text())
+required_layers = {"ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"}
+required_truths = {"practically_perfect", "ufvs_40km"}
+missing_layers = sorted(required_layers.difference(payload.get("layers", {})))
+missing_truths = sorted(required_truths.difference(payload.get("verification_truths", {})))
+if payload.get("schema_version") != 5 or payload.get("forecast_day") != 2 or missing_layers or missing_truths:
+    raise SystemExit(
+        f"ERROR: refusing to publish incomplete Day-2 verification map {path}: "
+        f"schema={payload.get('schema_version')!r} forecast_day={payload.get('forecast_day')!r} "
+        f"missing_layers={missing_layers} missing_truths={missing_truths}"
+    )
+print(f"Validated Day-2 verification map schema/layers/truths: {path}")
+PY
+
 python "$SOURCE_DIR/generate_dashboard_data.py" \
   --docs-dir "$SITE_REPO/docs" \
   --project-dir "$PROJECT_DIR" \

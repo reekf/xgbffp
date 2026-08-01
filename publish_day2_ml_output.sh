@@ -147,3 +147,11 @@ else
   git -C "$SITE_REPO" commit -m "Publish Day-2 XGBFFP forecast issued ${ISSUE_DATE}" -- docs/day2
   git -C "$SITE_REPO" push origin main
 fi
+
+# Recover verification jobs missed while the workstation was unavailable.
+# Only archives whose 12Z-to-12Z valid period has ended are eligible.
+if [[ "${DAY2_VERIFY_CATCHUP:-1}" == "1" ]]; then
+  if ! PUBLISH_GIT="$PUBLISH_GIT" "$SOURCE_DIR/publish_missing_day2_verification_outputs.sh"; then
+    echo "WARNING: one or more eligible Day-2 verification backfills failed; they will be retried." >&2
+  fi
+fi

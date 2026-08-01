@@ -1,10 +1,14 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 
 import generate_dashboard_data as dashboard
 import generate_interactive_map_data as map_data
 import realtime_day2_workflow as day2
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_day2_issue_valid_and_eligibility_contract():
@@ -52,3 +56,19 @@ def test_day2_map_metadata_and_members_do_not_require_v2(monkeypatch):
 def test_running_windows_are_30_day_and_seasonal_only():
     records = [{"date": "20260729"}]
     assert set(dashboard.select_windows(records)) == {"monthly", "seasonal"}
+
+
+def test_day2_verification_scheduler_uses_completeness_catchup():
+    catchup = (ROOT / "publish_missing_day2_verification_outputs.sh").read_text()
+    cron = (ROOT / "realtime_ml.crontab").read_text()
+    forecast_publisher = (ROOT / "publish_day2_ml_output.sh").read_text()
+    verification_publisher = (ROOT / "publish_day2_verification_output.sh").read_text()
+
+    assert 'status["valid_end_utc"]' in catchup
+    assert 'status.get("verification_available") is True' in catchup
+    assert 'required_layers = {"ml_r40", "ml_r60", "ml_r75", "ml_r100", "ml_mean", "wpc", "pp"}' in catchup
+    assert 'required_truths = {"practically_perfect", "ufvs_40km"}' in catchup
+    assert "./publish_missing_day2_verification_outputs.sh" in cron
+    assert 'DAY2_VERIFY_CATCHUP:-1' in forecast_publisher
+    assert "missing_layers" in verification_publisher
+    assert "missing_truths" in verification_publisher
