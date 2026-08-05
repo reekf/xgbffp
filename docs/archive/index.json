@@ -23,7 +23,7 @@
       "date": "20260804",
       "map_available": true,
       "map_href": "archive/20260804/map.json",
-      "map_updated_utc": "2026-08-05T22:09:16Z",
+      "map_updated_utc": "2026-08-05T22:14:40Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -36,7 +36,7 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260804/verification.png",
-      "verification_updated_utc": "2026-08-05T22:09:16Z"
+      "verification_updated_utc": "2026-08-05T22:14:40Z"
     },
     {
       "date": "20260802",
@@ -1521,5 +1521,5 @@
       "verification_updated_utc": "2026-07-13T04:48:06Z"
     }
   ],
-  "generated_utc": "2026-08-05T22:09:16Z"
+  "generated_utc": "2026-08-05T22:14:40Z"
 }
