@@ -1819,6 +1819,14 @@ def add_ufvs_and_realtime_pp(
     max_nearest_dist_km=25.0,
 ) -> pd.DataFrame:
     out = df.copy()
+    # The operational PP product is the all-flood-proxy union only.  Remove any
+    # legacy per-source PP fields carried by an older dataframe/cache while
+    # retaining the raw UFVS_* observations as separate verification layers.
+    legacy_pp_columns = [
+        column for column in out.columns
+        if str(column).startswith("PP_") and column != "PP_Any flood proxy"
+    ]
+    out = out.drop(columns=legacy_pp_columns, errors="ignore")
     d = date8(date)
     ed = extent_dict(extent)
     prefixes = list(REALTIME_PP_SOURCE_PREFIXES)
@@ -1827,7 +1835,10 @@ def add_ufvs_and_realtime_pp(
     pp_cache = rp.pp_cache_dir / f"pp_ufvs_{d}_expand{int(round(float(pp_expansion_radius_km)))}km_smooth{int(round(float(pp_smooth_radius_km)))}km_{len(out)}rows.parquet"
     if pp_cache.exists() and pp_cache.stat().st_size > 1024 and not force_ufvs:
         cached = pd.read_parquet(pp_cache)
-        add_cols = [c for c in cached.columns if c.startswith("UFVS_") or c.startswith("PP_")]
+        add_cols = [
+            c for c in cached.columns
+            if c.startswith("UFVS_") or c == "PP_Any flood proxy"
+        ]
         if add_cols and len(cached) == len(out):
             for c in add_cols:
                 out[c] = cached[c].to_numpy()
@@ -1863,17 +1874,9 @@ def add_ufvs_and_realtime_pp(
     ufvs_cols = [UFVS_PREFIX_TO_COL[p] for p in prefixes if p in UFVS_PREFIX_TO_COL and UFVS_PREFIX_TO_COL[p] in out.columns]
     if ufvs_cols:
         out["UFVS_ANY"] = (out[ufvs_cols].apply(pd.to_numeric, errors="coerce").fillna(0).max(axis=1) > 0).astype(np.int8)
-    point_sets = {
-        "PP_Stage IV > FFG": prefix_to_points.get("ST4gFFG", pd.DataFrame(columns=["Lat", "Lon"])),
-        "PP_Stage IV ARI": prefix_to_points.get("ST4gARI", pd.DataFrame(columns=["Lat", "Lon"])),
-        "PP_USGS": prefix_to_points.get("USGS", pd.DataFrame(columns=["Lat", "Lon"])),
-        "PP_Flash LSR": prefix_to_points.get("LSRFLASH", pd.DataFrame(columns=["Lat", "Lon"])),
-    }
-    if include_regular_flood_lsr:
-        point_sets["PP_Flood LSR"] = prefix_to_points.get("LSRREG", pd.DataFrame(columns=["Lat", "Lon"]))
-    all_pts = [v for v in point_sets.values() if v is not None and len(v) > 0]
+    all_pts = [v for v in prefix_to_points.values() if v is not None and len(v) > 0]
     union_pts = pd.concat(all_pts, ignore_index=True).drop_duplicates(subset=["Lat", "Lon"]) if all_pts else pd.DataFrame(columns=["Lat", "Lon"])
-    point_sets["PP_Any flood proxy"] = union_pts
+    point_sets = {"PP_Any flood proxy": union_pts}
     any_pp_created = False
     pp_meta = []
     for pp_col, pts in point_sets.items():
@@ -3441,13 +3444,12 @@ def get_mcs_detection(args, rp: RuntimePaths):
 # ======================================================================================
 
 
-def risk_category_labels(values):
+def risk_category_labels(values, official_pp=False):
     v = np.asarray(values, dtype=float)
     labels = np.full(v.shape, "<5%", dtype=object)
-    labels[v >= 0.05] = ">5%"
-    labels[v >= 0.15] = ">15%"
-    labels[v >= 0.40] = ">40%"
-    labels[v >= 0.70] = ">70%"
+    thresholds = [0.05, 0.10, 0.20, 0.40] if official_pp else [x[0] for x in RISK_THRESHOLDS]
+    for threshold, label in zip(thresholds, RISK_LABELS[1:]):
+        labels[np.isfinite(v) & (v >= threshold)] = label
     return labels
 
 
@@ -3464,8 +3466,8 @@ def setup_map_ax(ax, extent=DEFAULT_EXTENT):
     ax.set_ylabel("Latitude")
 
 
-def scatter_categorical(ax, lon, lat, values, point_size=7.0, alpha=0.85, show_below_5=False):
-    labels = risk_category_labels(values)
+def scatter_categorical(ax, lon, lat, values, point_size=7.0, alpha=0.85, show_below_5=False, official_pp=False):
+    labels = risk_category_labels(values, official_pp=official_pp)
     transform = ccrs.PlateCarree() if HAS_CARTOPY else None
     for lab in RISK_LABELS:
         if lab == "<5%" and not show_below_5:
@@ -3524,10 +3526,9 @@ def build_plot_panels(
         # makes it obvious that WPC was checked but no category overlapped the grid.
         panels.append(("WPC ERO", WPC_COL))
     if include_pp:
-        for c in ["PP_Any flood proxy", "PP_Stage IV > FFG", "PP_Stage IV ARI", "PP_USGS", "PP_Flash LSR"]:
-            if c in df.columns and pd.to_numeric(df[c], errors="coerce").fillna(0).max() > 0:
-                panels.append((c.replace("PP_", "PP: "), c))
-                break
+        c = "PP_Any flood proxy"
+        if c in df.columns and pd.to_numeric(df[c], errors="coerce").fillna(0).max() > 0:
+            panels.append(("PP: Any flood proxy", c))
     if include_ufvs:
         for c in ["UFVS_ANY", "UFVS_STAGE4_FFG", "UFVS_STAGE4_ARI", "UFVS_USGS", "UFVS_LSR_FLASH"]:
             if c in df.columns and pd.to_numeric(df[c], errors="coerce").fillna(0).max() > 0:
@@ -3578,10 +3579,17 @@ def plot_realtime_ero_panels(
     for ax, (title, col) in zip(axes, panels):
         setup_map_ax(ax, extent)
         vals = pd.to_numeric(sub[col], errors="coerce").fillna(0).clip(0, 1).to_numpy(float)
-        scatter_categorical(ax, lon, lat, vals, point_size=point_size, alpha=alpha, show_below_5=show_below_5)
+        scatter_categorical(
+            ax, lon, lat, vals,
+            point_size=point_size,
+            alpha=alpha,
+            show_below_5=show_below_5,
+            official_pp=(col == "PP_Any flood proxy"),
+        )
         # Public forecast product: radius-member ML probabilities plus WPC only.
         # Never overlay internal generation-gate masks/contours on this graphic.
-        ax.set_title(f"{title}")
+        suffix = " (official 5/10/20/40%)" if col == "PP_Any flood proxy" else ""
+        ax.set_title(f"{title}{suffix}")
     for ax in axes[len(panels):]:
         ax.set_visible(False)
     handles = [Patch(facecolor=RISK_COLORS[lab], edgecolor="0.3", label=lab) for lab in RISK_LABELS if show_below_5 or lab != "<5%"]
