@@ -36,6 +36,7 @@ MODEL_MEMBER_COLUMNS = (
     "ML_r100_Prob",
 )
 THRESHOLDS = (0.05, 0.15, 0.40, 0.70)
+PP_THRESHOLDS = (0.05, 0.10, 0.20, 0.40)
 TOP_PREDICTORS = {
     40: (
         ("qpf_ffg_ratio_spread", "Forecast_APCP_Max_6h_Window_0to24h_to_Guidance_FFG_06h_Ratio_R40km_Std", "Spread of 6-h QPF / 6-h FFG ratio", "ratio", 0.851431, "Higher values generally increase flash-flood probability."),
@@ -269,13 +270,18 @@ def load_top_predictors(date: str, base: pd.DataFrame) -> dict:
     return payload
 
 
-def contour_segments(lon: np.ndarray, lat: np.ndarray, values: np.ndarray) -> dict[str, list[list[list[float]]]]:
+def contour_segments(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    values: np.ndarray,
+    thresholds=THRESHOLDS,
+) -> dict[str, list[list[list[float]]]]:
     values = np.nan_to_num(np.asarray(values, dtype=float), nan=0.0, posinf=1.0, neginf=0.0)
     result: dict[str, list[list[list[float]]]] = {}
     fig, ax = plt.subplots(figsize=(2, 2))
     try:
-        contours = ax.tricontour(lon, lat, values, levels=THRESHOLDS)
-        for threshold, groups in zip(THRESHOLDS, contours.allsegs):
+        contours = ax.tricontour(lon, lat, values, levels=thresholds)
+        for threshold, groups in zip(thresholds, contours.allsegs):
             lines = []
             for group in groups:
                 if len(group) < 2:
@@ -350,12 +356,19 @@ def build_payload(
         if column not in frame.columns:
             continue
         numeric = pd.to_numeric(frame[column], errors="coerce").fillna(0.0).clip(0.0, 1.0)
+        layer_thresholds = PP_THRESHOLDS if key == "pp" else THRESHOLDS
         layers[key] = {
             "label": label,
             "kind": kind,
             "values": probability_millipercent(numeric),
+            "risk_threshold_percent": [int(round(value * 100)) for value in layer_thresholds],
         }
-        contours[key] = contour_segments(lon, lat, numeric.to_numpy(float))
+        contours[key] = contour_segments(
+            lon,
+            lat,
+            numeric.to_numpy(float),
+            thresholds=layer_thresholds,
+        )
 
     start = datetime.strptime(date + "12", "%Y%m%d%H").replace(tzinfo=timezone.utc)
     end = start + timedelta(days=1)
@@ -384,6 +397,7 @@ def build_payload(
         "source_class": source,
         "probability_encoding": "integer 0..1000; divide by 10 for percent",
         "risk_threshold_percent": [5, 15, 40, 70],
+        "pp_risk_threshold_percent": [5, 10, 20, 40],
         "grid": {
             "lat": np.round(lat, 5).tolist(),
             "lon": np.round(lon, 5).tolist(),
