@@ -44,7 +44,7 @@
       "issue_date": "20260802",
       "map_available": true,
       "map_href": "day2/archive/20260803/map.json",
-      "map_updated_utc": "2026-08-02T14:24:29Z",
+      "map_updated_utc": "2026-08-08T14:19:00Z",
       "plot_available": true,
       "plot_href": "day2/archive/20260803/latest.png",
       "published": true,
@@ -52,10 +52,10 @@
       "source_class": "realtime",
       "status_href": "day2/archive/20260803/status.json",
       "valid_period_label": "2026-08-03 12Z to 2026-08-04 12Z",
-      "verification_available": false,
+      "verification_available": true,
       "verification_embedded_in_map": false,
-      "verification_plot_href": null,
-      "verification_updated_utc": ""
+      "verification_plot_href": "day2/archive/20260803/verification.png",
+      "verification_updated_utc": "2026-08-08T14:19:00Z"
     },
     {
       "date": "20260802",
