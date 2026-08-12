@@ -1,16 +1,16 @@
 {
-  "date": "20260805",
+  "date": "20260811",
   "latest_plot": "latest.png",
   "map_available": true,
   "map_data": "map.json",
-  "map_updated_utc": "2026-08-06T18:56:36Z",
+  "map_updated_utc": "2026-08-11T13:52:18Z",
   "mcs_classification": {
     "cloud_shield": "HRRR SBT < 241 K with area >60000 km2 for at least 3 continuous hours",
     "convective_feature": "HRRR composite simulated reflectivity >45 dBZ within the precipitation feature for at least 4 continuous hours",
     "hrrr_criterion_met": true,
     "ir_duration_met": true,
-    "max_ir_duration_hours": 25,
-    "max_joint_duration_hours": 25,
+    "max_ir_duration_hours": 20,
+    "max_joint_duration_hours": 13,
     "method": "HRRR-only actual PyFLEXTRKR gate",
     "model_results": {
       "hrrr": {
@@ -38,11 +38,8 @@
   "plot_available": true,
   "product_description": "Machine-learning radius products, ensemble mean, and WPC ERO.",
   "published": true,
-  "site_updated_utc": "2026-08-05T13:59:14Z",
-  "valid_end_utc": "2026-08-06T12:00:00Z",
-  "valid_period_label": "2026-08-05 12Z to 2026-08-06 12Z",
-  "valid_start_utc": "2026-08-05T12:00:00Z",
-  "verification_available": true,
-  "verification_plot": "verification.png",
-  "verification_updated_utc": "2026-08-06T18:56:36Z"
+  "site_updated_utc": "2026-08-11T13:52:18Z",
+  "valid_end_utc": "2026-08-12T12:00:00Z",
+  "valid_period_label": "2026-08-11 12Z to 2026-08-12 12Z",
+  "valid_start_utc": "2026-08-11T12:00:00Z"
 }

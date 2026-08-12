@@ -1,12 +1,88 @@
 {
   "entries": [
     {
+      "date": "20260812",
+      "forecast_day": 2,
+      "issue_date": "20260811",
+      "map_available": true,
+      "map_href": "day2/archive/20260812/map.json",
+      "map_updated_utc": "2026-08-11T14:16:34Z",
+      "plot_available": true,
+      "plot_href": "day2/archive/20260812/latest.png",
+      "published": true,
+      "site_updated_utc": "2026-08-11T14:16:34Z",
+      "source_class": "realtime",
+      "status_href": "day2/archive/20260812/status.json",
+      "valid_period_label": "2026-08-12 12Z to 2026-08-13 12Z",
+      "verification_available": false,
+      "verification_embedded_in_map": false,
+      "verification_plot_href": null,
+      "verification_updated_utc": ""
+    },
+    {
+      "date": "20260810",
+      "forecast_day": 2,
+      "issue_date": "20260809",
+      "map_available": true,
+      "map_href": "day2/archive/20260810/map.json",
+      "map_updated_utc": "2026-08-11T16:16:38Z",
+      "plot_available": true,
+      "plot_href": "day2/archive/20260810/latest.png",
+      "published": true,
+      "site_updated_utc": "2026-08-09T14:24:21Z",
+      "source_class": "realtime",
+      "status_href": "day2/archive/20260810/status.json",
+      "valid_period_label": "2026-08-10 12Z to 2026-08-11 12Z",
+      "verification_available": true,
+      "verification_embedded_in_map": false,
+      "verification_plot_href": "day2/archive/20260810/verification.png",
+      "verification_updated_utc": "2026-08-11T16:16:38Z"
+    },
+    {
+      "date": "20260809",
+      "forecast_day": 2,
+      "issue_date": "20260808",
+      "map_available": true,
+      "map_href": "day2/archive/20260809/map.json",
+      "map_updated_utc": "2026-08-10T16:16:39Z",
+      "plot_available": true,
+      "plot_href": "day2/archive/20260809/latest.png",
+      "published": true,
+      "site_updated_utc": "2026-08-08T14:17:04Z",
+      "source_class": "realtime",
+      "status_href": "day2/archive/20260809/status.json",
+      "valid_period_label": "2026-08-09 12Z to 2026-08-10 12Z",
+      "verification_available": true,
+      "verification_embedded_in_map": false,
+      "verification_plot_href": "day2/archive/20260809/verification.png",
+      "verification_updated_utc": "2026-08-10T16:16:39Z"
+    },
+    {
+      "date": "20260806",
+      "forecast_day": 2,
+      "issue_date": "20260805",
+      "map_available": true,
+      "map_href": "day2/archive/20260806/map.json",
+      "map_updated_utc": "2026-08-08T14:19:40Z",
+      "plot_available": true,
+      "plot_href": "day2/archive/20260806/latest.png",
+      "published": true,
+      "site_updated_utc": "2026-08-05T21:42:30Z",
+      "source_class": "realtime",
+      "status_href": "day2/archive/20260806/status.json",
+      "valid_period_label": "2026-08-06 12Z to 2026-08-07 12Z",
+      "verification_available": true,
+      "verification_embedded_in_map": false,
+      "verification_plot_href": "day2/archive/20260806/verification.png",
+      "verification_updated_utc": "2026-08-08T14:19:40Z"
+    },
+    {
       "date": "20260803",
       "forecast_day": 2,
       "issue_date": "20260802",
       "map_available": true,
       "map_href": "day2/archive/20260803/map.json",
-      "map_updated_utc": "2026-08-02T14:24:29Z",
+      "map_updated_utc": "2026-08-08T14:19:00Z",
       "plot_available": true,
       "plot_href": "day2/archive/20260803/latest.png",
       "published": true,
@@ -14,10 +90,10 @@
       "source_class": "realtime",
       "status_href": "day2/archive/20260803/status.json",
       "valid_period_label": "2026-08-03 12Z to 2026-08-04 12Z",
-      "verification_available": false,
+      "verification_available": true,
       "verification_embedded_in_map": false,
-      "verification_plot_href": null,
-      "verification_updated_utc": ""
+      "verification_plot_href": "day2/archive/20260803/verification.png",
+      "verification_updated_utc": "2026-08-08T14:19:00Z"
     },
     {
       "date": "20260802",
@@ -25,7 +101,7 @@
       "issue_date": "20260801",
       "map_available": true,
       "map_href": "day2/archive/20260802/map.json",
-      "map_updated_utc": "2026-08-01T14:14:10Z",
+      "map_updated_utc": "2026-08-08T14:18:21Z",
       "plot_available": true,
       "plot_href": "day2/archive/20260802/latest.png",
       "published": true,
@@ -33,10 +109,10 @@
       "source_class": "realtime",
       "status_href": "day2/archive/20260802/status.json",
       "valid_period_label": "2026-08-02 12Z to 2026-08-03 12Z",
-      "verification_available": false,
+      "verification_available": true,
       "verification_embedded_in_map": false,
-      "verification_plot_href": null,
-      "verification_updated_utc": ""
+      "verification_plot_href": "day2/archive/20260802/verification.png",
+      "verification_updated_utc": "2026-08-08T14:18:21Z"
     },
     {
       "date": "20260801",
@@ -44,7 +120,7 @@
       "issue_date": "20260731",
       "map_available": true,
       "map_href": "day2/archive/20260801/map.json",
-      "map_updated_utc": "2026-07-31T14:17:55Z",
+      "map_updated_utc": "2026-08-08T14:17:43Z",
       "plot_available": true,
       "plot_href": "day2/archive/20260801/latest.png",
       "published": true,
@@ -52,10 +128,10 @@
       "source_class": "realtime",
       "status_href": "day2/archive/20260801/status.json",
       "valid_period_label": "2026-08-01 12Z to 2026-08-02 12Z",
-      "verification_available": false,
+      "verification_available": true,
       "verification_embedded_in_map": false,
-      "verification_plot_href": null,
-      "verification_updated_utc": ""
+      "verification_plot_href": "day2/archive/20260801/verification.png",
+      "verification_updated_utc": "2026-08-08T14:17:43Z"
     },
     {
       "date": "20260731",
@@ -971,5 +1047,5 @@
     }
   ],
   "forecast_day": 2,
-  "generated_utc": "2026-08-02T14:24:29Z"
+  "generated_utc": "2026-08-11T14:16:34Z"
 }
