@@ -12,6 +12,9 @@ REQUIRE_GIT_SYNC="${REQUIRE_GIT_SYNC:-0}"
 PUBLIC_PNG_NAME="realtime_ml_public_${DATE_ARG}_valid12to12_radii_wpc.png"
 PUBLIC_PNG_SRC="${OUT_DIR}/${PUBLIC_PNG_NAME}"
 
+. "$REPO_DIR/publisher_git.sh"
+xgbffp_acquire_publish_lock
+
 cd "$REPO_DIR"
 
 echo "======================================================================"
@@ -26,14 +29,7 @@ echo "======================================================================"
 # local forecast generation; commit/push will still fail if publishing is
 # requested and the network remains broken.
 if [[ "$PUBLISH_GIT" == "1" ]]; then
-  git switch main
-  if ! git pull --ff-only origin main; then
-    echo "WARNING: git pull failed; continuing with local checkout." >&2
-    if [[ "$REQUIRE_GIT_SYNC" == "1" ]]; then
-      echo "ERROR: REQUIRE_GIT_SYNC=1 and git pull failed." >&2
-      exit 1
-    fi
-  fi
+  xgbffp_sync_main "$REPO_DIR" "$REQUIRE_GIT_SYNC"
 fi
 
 # Prevent stale contour-era graphics from being copied if the plotter fails.
@@ -271,7 +267,7 @@ else
     echo "PUBLISH_GIT=${PUBLISH_GIT}; leaving website changes staged without committing or pushing."
   else
     git commit -m "Publish realtime ML forecast for ${DATE_ARG}" -- "${PUBLISH_PATHS[@]}"
-    git push origin main
+    xgbffp_push_main "$REPO_DIR"
   fi
 fi
 

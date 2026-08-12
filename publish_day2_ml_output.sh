@@ -9,9 +9,11 @@ VALID_DATE="$(date -u -d "${ISSUE_DATE} +1 day" +%Y%m%d)"
 PUBLISH_GIT="${PUBLISH_GIT:-1}"
 STATUS_SRC="${PROJECT_DIR}/v33day2_realtime_radiusstats_forecasts/mcs_triggered_figures/status_day2_issue${ISSUE_DATE}_valid${VALID_DATE}.json"
 
+. "$SOURCE_DIR/publisher_git.sh"
+xgbffp_acquire_publish_lock
+
 if [[ "$PUBLISH_GIT" == "1" ]]; then
-  git -C "$SITE_REPO" switch main
-  git -C "$SITE_REPO" pull --ff-only origin main
+  xgbffp_sync_main "$SITE_REPO" "${REQUIRE_GIT_SYNC:-0}"
 fi
 
 python "$SOURCE_DIR/realtime_day2_workflow.py" --issue-date "$ISSUE_DATE"
@@ -145,7 +147,7 @@ elif [[ "$PUBLISH_GIT" != "1" ]]; then
   echo "PUBLISH_GIT=$PUBLISH_GIT; Day-2 website changes are staged but not pushed."
 else
   git -C "$SITE_REPO" commit -m "Publish Day-2 XGBFFP forecast issued ${ISSUE_DATE}" -- docs/day2
-  git -C "$SITE_REPO" push origin main
+  xgbffp_push_main "$SITE_REPO"
 fi
 
 # Recover verification jobs missed while the workstation was unavailable.

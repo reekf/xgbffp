@@ -11,9 +11,11 @@ VERIFY_FORCE_UFVS="${VERIFY_FORCE_UFVS:-1}"
 ARCHIVE_DIR="$SITE_REPO/docs/day2/archive/${VALID_DATE}"
 STATUS_SRC="${PROJECT_DIR}/v33day2_realtime_radiusstats_forecasts/mcs_triggered_figures/status_day2_issue${ISSUE_DATE}_valid${VALID_DATE}.json"
 
+. "$SOURCE_DIR/publisher_git.sh"
+xgbffp_acquire_publish_lock
+
 if [[ "$PUBLISH_GIT" == "1" ]]; then
-  git -C "$SITE_REPO" switch main
-  git -C "$SITE_REPO" pull --ff-only origin main
+  xgbffp_sync_main "$SITE_REPO" "${REQUIRE_GIT_SYNC:-0}"
 fi
 if [[ ! -s "$ARCHIVE_DIR/map.json" || ! -s "$ARCHIVE_DIR/status.json" ]]; then
   echo "ERROR: Issued Day-2 forecast archive is missing: $ARCHIVE_DIR" >&2
@@ -116,5 +118,5 @@ elif [[ "$PUBLISH_GIT" != "1" ]]; then
   echo "PUBLISH_GIT=$PUBLISH_GIT; Day-2 verification changes are staged but not pushed."
 else
   git -C "$SITE_REPO" commit -m "Verify Day-2 XGBFFP forecast issued ${ISSUE_DATE}" -- docs/day2
-  git -C "$SITE_REPO" push origin main
+  xgbffp_push_main "$SITE_REPO"
 fi

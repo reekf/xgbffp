@@ -13,18 +13,14 @@ VERIFICATION_NAME="realtime_ml_verification_${DATE_ARG}_valid12to12_radii_pp.png
 VERIFICATION_SRC="${OUT_DIR}/${VERIFICATION_NAME}"
 ARCHIVE_DIR="docs/archive/${DATE_ARG}"
 
+. "$REPO_DIR/publisher_git.sh"
+xgbffp_acquire_publish_lock
+
 cd "$REPO_DIR"
 
 echo "Publishing ML verification for forecast date ${DATE_ARG}"
 if [[ "$PUBLISH_GIT" == "1" ]]; then
-  git switch main
-  if ! git pull --ff-only origin main; then
-    echo "WARNING: git pull failed; continuing with local checkout." >&2
-    if [[ "${REQUIRE_GIT_SYNC:-0}" == "1" ]]; then
-      echo "ERROR: REQUIRE_GIT_SYNC=1 and git pull failed." >&2
-      exit 1
-    fi
-  fi
+  xgbffp_sync_main "$REPO_DIR" "${REQUIRE_GIT_SYNC:-0}"
 fi
 
 if [[ ! -f "${ARCHIVE_DIR}/latest.png" || ! -f "${ARCHIVE_DIR}/status.json" ]]; then
@@ -162,5 +158,5 @@ elif [[ "$PUBLISH_GIT" != "1" ]]; then
   echo "PUBLISH_GIT=${PUBLISH_GIT}; leaving verification website changes staged without committing or pushing."
 else
   git commit -m "Publish ML verification for ${DATE_ARG}" -- "${PUBLISH_PATHS[@]}"
-  git push origin main
+  xgbffp_push_main "$REPO_DIR"
 fi

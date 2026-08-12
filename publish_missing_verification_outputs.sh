@@ -6,6 +6,9 @@ VERIFY_LOOKBACK_DAYS="${VERIFY_LOOKBACK_DAYS:-7}"
 PUBLISH_GIT="${PUBLISH_GIT:-1}"
 LOCK_FILE="${VERIFY_CATCHUP_LOCK_FILE:-/tmp/xgbffp-verification-catchup.lock}"
 
+. "$REPO_DIR/publisher_git.sh"
+xgbffp_acquire_publish_lock
+
 if ! [[ "$VERIFY_LOOKBACK_DAYS" =~ ^[1-9][0-9]*$ ]]; then
   echo "ERROR: VERIFY_LOOKBACK_DAYS must be a positive integer, got ${VERIFY_LOOKBACK_DAYS}" >&2
   exit 2
