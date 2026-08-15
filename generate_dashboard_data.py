@@ -27,6 +27,7 @@ THRESHOLD_LABELS = {
     40: "Moderate or greater",
     70: "High",
 }
+PP_THRESHOLD_BY_FORECAST_THRESHOLD = {5: 5, 15: 10, 40: 20, 70: 40}
 PRODUCTS = (
     "ml_r40",
     "ml_r60",
@@ -46,10 +47,12 @@ PRODUCT_LABELS = {
 }
 REFERENCE_META = {
     "practically_perfect": {
-        "label": "Practically Perfect (smoothed any-flood-proxy field)",
+        "label": "Reconstructed Practically Perfect (12Z WPC-fit recipe)",
         "truth_definition": (
-            "Continuous Practically Perfect probabilities constructed from the available "
-            "UFVS flood proxies after 40-km expansion and 100-km smoothing."
+            "Continuous 12Z-to-12Z Practically Perfect reconstruction on the WPC 0.09-degree "
+            "working grid: nearest-cell UFVS placement; 4-cell square FFG/ARI footprints; "
+            "5-cell circular report/USGS footprint; 9.75-cell Gaussian truncated at 3.5 sigma; "
+            "and (0.60 FFG + 0.60 ARI + 1.00 observations) / 3."
         ),
     },
     "ufvs_40km": {
@@ -107,13 +110,19 @@ def risk_occurrence_metrics(
     return metrics
 
 
-def daily_product(values: list[int], truth_values: list[int], threshold: int) -> dict:
+def daily_product(
+    values: list[int],
+    truth_values: list[int],
+    threshold: int,
+    truth_threshold: int | None = None,
+) -> dict:
     encoded_threshold = threshold * 10
+    encoded_truth_threshold = (threshold if truth_threshold is None else truth_threshold) * 10
     hits = misses = false_alarms = correct_negatives = 0
     squared_error_sum = 0.0
     for forecast_encoded, truth_encoded in zip(values, truth_values):
         forecast_yes = forecast_encoded >= encoded_threshold
-        truth_yes = truth_encoded >= encoded_threshold
+        truth_yes = truth_encoded >= encoded_truth_threshold
         if forecast_yes and truth_yes:
             hits += 1
         elif truth_yes:
@@ -137,6 +146,10 @@ def daily_product(values: list[int], truth_values: list[int], threshold: int) ->
             "forecast_positive_count": hits + false_alarms,
             "squared_error_sum": round(squared_error_sum, 8),
             "brier_score": safe_ratio(squared_error_sum, sample_count),
+            "forecast_threshold_percent": int(threshold),
+            "reference_threshold_percent": int(
+                threshold if truth_threshold is None else truth_threshold
+            ),
         }
     )
     return metrics
@@ -190,6 +203,7 @@ def products_for_truth(
     grid_count: int,
     path: Path,
     product_keys: tuple[str, ...] = PRODUCTS,
+    truth_threshold_by_forecast: dict[int, int] | None = None,
 ) -> dict:
     products = {}
     for product in product_keys:
@@ -201,7 +215,12 @@ def products_for_truth(
         if any(not isinstance(value, (int, float)) or not 0 <= value <= 1000 for value in values):
             raise ValueError(f"{path}: {product} probabilities must be finite values from 0 to 1000")
         products[product] = {
-            str(threshold): daily_product(values, truth_values, threshold)
+            str(threshold): daily_product(
+                values,
+                truth_values,
+                threshold,
+                truth_threshold=(truth_threshold_by_forecast or {}).get(threshold, threshold),
+            )
             for threshold in THRESHOLDS
         }
     return products
@@ -226,7 +245,16 @@ def load_realtime_daily(
             continue
         layers = payload.get("layers", {})
         saved_truths = payload.get("verification_truths", {})
-        pp_truth = saved_truths.get("practically_perfect", {}).get("values")
+        pp_entry = saved_truths.get("practically_perfect", {})
+        pp_provenance = pp_entry.get("provenance", {})
+        if (
+            pp_provenance.get("product_class") == "reconstructed"
+            and pp_provenance.get("required_sources_complete") is False
+        ):
+            # Keep the map available with its explicit warning, but do not let
+            # a known-incomplete proxy set bias rolling verification.
+            continue
+        pp_truth = pp_entry.get("values")
         if not pp_truth:
             pp_truth = layers.get("pp", {}).get("values")
         if not isinstance(pp_truth, list) or not pp_truth:
@@ -242,7 +270,17 @@ def load_realtime_daily(
         references = {
             "practically_perfect": {
                 **REFERENCE_META["practically_perfect"],
-                "products": products_for_truth(layers, pp_truth, grid_count, path, product_keys),
+                "label": pp_entry.get("label") or REFERENCE_META["practically_perfect"]["label"],
+                "provenance": pp_entry.get("provenance", {}),
+                "threshold_mapping_percent": PP_THRESHOLD_BY_FORECAST_THRESHOLD,
+                "products": products_for_truth(
+                    layers,
+                    pp_truth,
+                    grid_count,
+                    path,
+                    product_keys,
+                    truth_threshold_by_forecast=PP_THRESHOLD_BY_FORECAST_THRESHOLD,
+                ),
             },
             "ufvs_40km": {
                 **REFERENCE_META["ufvs_40km"],
@@ -260,7 +298,7 @@ def load_realtime_daily(
                 "schema_version": 3,
                 "dataset_class": "realtime-issued-verification",
                 "forecast_day": int(forecast_day),
-                "verification_target": REFERENCE_META[DEFAULT_REFERENCE]["label"],
+                "verification_target": references[DEFAULT_REFERENCE]["label"],
                 "default_reference": DEFAULT_REFERENCE,
                 "date": str(payload["date"]),
                 "valid_period_label": payload.get("valid_period_label", ""),
@@ -418,8 +456,21 @@ def aggregate_window(
         if any(reference in record.get("references", {}) for record in records)
     ] or list(REFERENCE_META)
     for reference in available_references:
+        record_meta = next(
+            (
+                record.get("references", {}).get(reference, {})
+                for record in records
+                if reference in record.get("references", {})
+            ),
+            {},
+        )
         references[reference] = {
             **REFERENCE_META[reference],
+            **{
+                key: record_meta[key]
+                for key in ("label", "provenance", "threshold_mapping_percent")
+                if key in record_meta
+            },
             "products": aggregate_reference_products(records, reference, product_keys),
         }
     products = references[DEFAULT_REFERENCE]["products"]
@@ -428,7 +479,7 @@ def aggregate_window(
         "schema_version": 4,
         "dataset_class": "realtime-issued-verification",
         "forecast_day": int(records[0].get("forecast_day", forecast_day)) if records else int(forecast_day),
-        "verification_target": REFERENCE_META[DEFAULT_REFERENCE]["label"],
+        "verification_target": references[DEFAULT_REFERENCE]["label"],
         "default_reference": DEFAULT_REFERENCE,
         "references": references,
         "window": window_name,
@@ -585,12 +636,30 @@ def publish_risk_occurrence(project_dir: Path, docs_dir: Path, generated: str) -
             "csi": metrics["csi"],
             "ets": metrics["ets"],
         }
+    verified_counts = sorted(
+        {
+            counts["verified_day_count"]
+            for thresholds in products.values()
+            for counts in thresholds.values()
+        }
+    )
+    if len(verified_counts) != 1:
+        raise RuntimeError(
+            f"Formal PP risk-occurrence products have inconsistent case counts: {verified_counts}"
+        )
+    verified_case_count = verified_counts[0]
     payload = {
         "schema_version": 1,
         "dataset_class": "formal-independent-test-set",
         "test_period": "2024–2025",
         "verification_target": "Practically Perfect: Any flood proxy",
-        "count_unit": "forecast-day risk-occurrence contingency counts across 45 test cases",
+        "count_unit": (
+            "forecast-day risk-occurrence contingency counts across "
+            f"{verified_case_count} cases with archived Practically Perfect fields"
+        ),
+        "verified_case_count": verified_case_count,
+        "catalog_case_count": 45,
+        "missing_archived_pp_case_count": 45 - verified_case_count,
         "definition": (
             "For each test day and threshold, hit means both the forecast and Practically "
             "Perfect contain the selected risk; miss means only Practically Perfect does; "
@@ -662,6 +731,21 @@ def publish_realtime_verification(
         product_keys=product_keys,
         forecast_day=forecast_day,
     )
+    excluded_incomplete_dates = []
+    for map_path in sorted((root / "archive").glob("20??????/map.json")):
+        payload = json.loads(map_path.read_text())
+        provenance = (
+            payload.get("verification_truths", {})
+            .get("practically_perfect", {})
+            .get("provenance", {})
+        )
+        if (
+            payload.get("source_class") == "realtime"
+            and int(payload.get("forecast_day", 1)) == int(forecast_day)
+            and provenance.get("product_class") == "reconstructed"
+            and provenance.get("required_sources_complete") is False
+        ):
+            excluded_incomplete_dates.append(str(payload.get("date") or map_path.parent.name))
     included_dates = {record["date"] for record in records}
     for stale in (output_root / "daily").glob("20??????.json"):
         if stale.stem not in included_dates:
@@ -706,6 +790,8 @@ def publish_realtime_verification(
         "generated_utc": generated,
         "daily_record_count": len(records),
         "daily_dates": [row["date"] for row in records],
+        "excluded_incomplete_pp_count": len(excluded_incomplete_dates),
+        "excluded_incomplete_pp_dates": excluded_incomplete_dates,
         "daily_path_template": "verification/daily/{date}.json",
         "rolling_paths": {
             name: f"verification/rolling/{name}.json" for name in windows

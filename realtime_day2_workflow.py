@@ -70,7 +70,11 @@ def runtime_paths(args) -> core.RuntimePaths:
     # Day-2 WPC and PP caches must never collide with Day 1.
     rp.wpc_cache_dir = project / "realtime_wpc_ero_cache_v33day2"
     rp.pp_cache_dir = project / "realtime_pp_from_ufvs_cache_v33day2"
-    for path in (rp.wpc_cache_dir, rp.pp_cache_dir):
+    # Day 1 and Day 2 verify the same event-day 12Z-to-12Z UFVS truth. Share
+    # the immutable raw inputs so both products cannot fetch different source
+    # snapshots while retaining separate derived PP caches.
+    rp.ufvs_cache_dir = project / "v33_realtime_radiusstats_forecasts" / "ufvs_raw"
+    for path in (rp.wpc_cache_dir, rp.pp_cache_dir, rp.ufvs_cache_dir):
         path.mkdir(parents=True, exist_ok=True)
     return rp
 
@@ -244,9 +248,6 @@ def verify_forecast(args, rp: core.RuntimePaths) -> tuple[pd.DataFrame, Path]:
         date=valid,
         rp=rp,
         force_ufvs=args.force_ufvs,
-        include_regular_flood_lsr=args.include_regular_flood_lsr,
-        pp_expansion_radius_km=args.pp_expansion_radius_km,
-        pp_smooth_radius_km=args.pp_smooth_radius_km,
     )
     verified = core.add_wpc_ero_to_realtime_from_iem(
         verified,
@@ -298,9 +299,6 @@ def parse_args(argv=None):
     parser.add_argument("--force-wpc", action="store_true")
     parser.add_argument("--force-ufvs", action="store_true")
     parser.add_argument("--allow-feature-nan-fill-zero", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--include-regular-flood-lsr", action="store_true")
-    parser.add_argument("--pp-expansion-radius-km", type=float, default=40.0)
-    parser.add_argument("--pp-smooth-radius-km", type=float, default=100.0)
     parser.add_argument("--allow-early-verification", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--status-json", default=None)
     parser.add_argument("--verbose", action="store_true")

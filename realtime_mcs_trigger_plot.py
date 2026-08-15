@@ -76,6 +76,13 @@ import numpy as np
 import pandas as pd
 
 from pyflextrkr_hrrr import prepare_and_run_pyflextrkr
+from operational_pp_reconstruction import (
+    PP_OPTIONAL_SOURCES,
+    PP_RECIPE_ID,
+    PP_RECIPE_LABEL,
+    PP_REQUIRED_SOURCES,
+    reconstruct_pp,
+)
 
 # Headless-safe plotting for automation.
 import matplotlib
@@ -158,7 +165,7 @@ UFVS_PREFIX_TO_COL = {
     "LSRFLASH": "UFVS_LSR_FLASH",
     "LSRREG": "UFVS_LSR_REGULAR",
 }
-REALTIME_PP_SOURCE_PREFIXES = ["ST4gFFG", "ST4gARI", "USGS", "LSRFLASH"]
+REALTIME_PP_SOURCE_PREFIXES = [*PP_REQUIRED_SOURCES, *PP_OPTIONAL_SOURCES]
 WPC_IEM_OUTLOOK_URL = "https://mesonet.agron.iastate.edu/cgi-bin/request/gis/outlooks.py"
 
 SCRIPT_VERBOSE = False
@@ -1265,10 +1272,7 @@ def build_predict_verify_realtime_multi_radius(
     force_ufvs: bool = False,
     force_wpc: bool = False,
     include_ufvs: bool = False,
-    include_regular_flood_lsr: bool = False,
     include_wpc: bool = True,
-    pp_expansion_radius_km: float = 40.0,
-    pp_smooth_radius_km: float = 100.0,
     training_script_by_radius: dict[int, str] | None = None,
     nam_dir_override: str | None = None,
     cycle_label: str | None = None,
@@ -1342,9 +1346,6 @@ def build_predict_verify_realtime_multi_radius(
             date=d,
             rp=rp,
             force_ufvs=force_ufvs,
-            include_regular_flood_lsr=include_regular_flood_lsr,
-            pp_expansion_radius_km=pp_expansion_radius_km,
-            pp_smooth_radius_km=pp_smooth_radius_km,
         )
     summary_cols = radius_cols + ([ENSEMBLE_MEAN_COL] if ENSEMBLE_MEAN_COL in base.columns else []) + ([WPC_COL] if WPC_COL in base.columns else [])
     print_probability_summary(base, summary_cols, "Realtime radius-member probability summary")
@@ -1359,9 +1360,6 @@ def verify_existing_realtime_predictions(
     radii: list[int],
     rp: RuntimePaths,
     force_ufvs: bool = True,
-    include_regular_flood_lsr: bool = False,
-    pp_expansion_radius_km: float = 40.0,
-    pp_smooth_radius_km: float = 100.0,
     cycle_label: str | None = None,
 ) -> Path | None:
     """Attach UFVS/PP verification to existing forecasts without rebuilding features."""
@@ -1399,9 +1397,6 @@ def verify_existing_realtime_predictions(
         date=d,
         rp=rp,
         force_ufvs=force_ufvs,
-        include_regular_flood_lsr=include_regular_flood_lsr,
-        pp_expansion_radius_km=pp_expansion_radius_km,
-        pp_smooth_radius_km=pp_smooth_radius_km,
     )
     rr = "_".join(f"r{int(r)}" for r in available)
     out_path = rp.verified_cache_dir / f"realtime_ufvs_verified_v33_multiradius_{rr}_{d}.parquet"
@@ -1682,7 +1677,9 @@ def ufvs_window_strings(date: str):
     d = date8(date)
     start = datetime.strptime(d, "%Y%m%d")
     end = start + timedelta(days=1)
-    return [(f"{d}12", f"{end.strftime('%Y%m%d')}12"), (f"{d}16", f"{end.strftime('%Y%m%d')}12")]
+    # The fitted PP reconstruction is a pure 12Z-to-12Z product. Never blend
+    # or fall back to the separate 16Z archive product.
+    return [(f"{d}12", f"{end.strftime('%Y%m%d')}12")]
 
 
 def ufvs_raw_cache_path(rp: RuntimePaths, prefix: str, date: str, start_stamp: str, end_stamp: str) -> Path:
@@ -1725,10 +1722,15 @@ def fetch_ufvs_points(date: str, prefix: str, rp: RuntimePaths, force: bool = Fa
                 resp = requests.get(url, timeout=timeout)
                 if resp.status_code != 200:
                     last_error = f"HTTP {resp.status_code}: {url}"
-                    continue
-                text = resp.text
-                cache_path.write_text(text)
-                source_available = True
+                    if cache_path.exists() and cache_path.stat().st_size > 0:
+                        text = cache_path.read_text(errors="ignore")
+                        source_available = True
+                    else:
+                        continue
+                else:
+                    text = resp.text
+                    cache_path.write_text(text)
+                    source_available = True
             pts = parse_ufvs_text_points(text, prefix)
             pts["ufvs_file"] = cache_path.name
             pts.attrs["ufvs_available"] = source_available
@@ -1763,59 +1765,12 @@ def event_mask_from_points(df_grid: pd.DataFrame, pts: pd.DataFrame, max_dist_km
     return mask
 
 
-def smooth_grid_values_by_km(df_grid: pd.DataFrame, values: np.ndarray, smooth_radius_km=100.0, chunk_size=1500, cutoff_sigma=3.0) -> np.ndarray:
-    values = np.asarray(values, dtype=np.float32)
-    if values.size == 0 or not np.isfinite(values).any() or np.nanmax(values) <= 0:
-        return np.zeros_like(values, dtype=np.float32)
-    if smooth_radius_km is None or float(smooth_radius_km) <= 0:
-        return np.clip(values, 0.0, 1.0).astype(np.float32)
-    sigma_km = float(smooth_radius_km)
-    max_km = float(cutoff_sigma) * sigma_km
-    max_chord = km_to_unit_sphere_chord_radius(max_km)
-    lat = df_grid["Lat"].to_numpy(float)
-    lon = df_grid["Lon"].to_numpy(float)
-    xyz = latlon_to_unit_xyz(lat, lon)
-    tree = cKDTree(xyz)
-    binary = (np.nan_to_num(values, nan=0.0, posinf=0.0, neginf=0.0) > 0).astype(np.float32)
-    out = np.zeros(len(binary), dtype=np.float32)
-    for start in range(0, len(binary), int(chunk_size)):
-        end = min(start + int(chunk_size), len(binary))
-        neigh = tree.query_ball_point(xyz[start:end], r=max_chord)
-        for ii, idx in enumerate(neigh):
-            if not idx:
-                out[start + ii] = 0.0
-                continue
-            idx = np.asarray(idx, dtype=np.int64)
-            cd = np.linalg.norm(xyz[idx] - xyz[start + ii], axis=1)
-            cd = np.clip(cd, 0.0, 2.0)
-            dist_km = EARTH_RADIUS_KM * (2.0 * np.arcsin(cd / 2.0))
-            w = np.exp(-0.5 * (dist_km / sigma_km) ** 2).astype(np.float32)
-            den = float(np.sum(w))
-            out[start + ii] = 0.0 if den <= 0 else float(np.sum(w * binary[idx]) / den)
-    return np.clip(out, 0.0, 1.0).astype(np.float32)
-
-
-def pp_from_points(df_grid: pd.DataFrame, pts: pd.DataFrame, expansion_radius_km=40.0, smooth_radius_km=100.0, max_nearest_dist_km=20.0) -> tuple[np.ndarray, dict]:
-    if pts is None or len(pts) == 0:
-        return np.zeros(len(df_grid), dtype=np.float32), {"raw_points": 0, "nearest_event_pixels": 0, "expanded_pixels": 0, "smoothed": False}
-    xyz = latlon_to_unit_xyz(df_grid["Lat"].to_numpy(float), df_grid["Lon"].to_numpy(float))
-    tree = cKDTree(xyz)
-    event = event_mask_from_points(df_grid, pts, max_dist_km=max_nearest_dist_km)
-    expanded = expand_binary_mask_radius_km(event, tree, xyz, radius_km=float(expansion_radius_km)).astype(np.float32)
-    smoothed = smooth_grid_values_by_km(df_grid, expanded, smooth_radius_km=float(smooth_radius_km))
-    meta = {"raw_points": int(len(pts)), "nearest_event_pixels": int(event.sum()), "expanded_pixels": int(expanded.sum()), "smoothed": bool(smooth_radius_km is not None and float(smooth_radius_km) > 0)}
-    return np.clip(smoothed, 0.0, 1.0).astype(np.float32), meta
-
-
 def add_ufvs_and_realtime_pp(
     df: pd.DataFrame,
     date: str,
     rp: RuntimePaths,
     force_ufvs: bool = False,
-    include_regular_flood_lsr: bool = False,
     extent=DEFAULT_EXTENT,
-    pp_expansion_radius_km=40.0,
-    pp_smooth_radius_km=100.0,
     max_nearest_dist_km=25.0,
 ) -> pd.DataFrame:
     out = df.copy()
@@ -1830,14 +1785,13 @@ def add_ufvs_and_realtime_pp(
     d = date8(date)
     ed = extent_dict(extent)
     prefixes = list(REALTIME_PP_SOURCE_PREFIXES)
-    if include_regular_flood_lsr and "LSRREG" not in prefixes:
-        prefixes.append("LSRREG")
-    pp_cache = rp.pp_cache_dir / f"pp_ufvs_{d}_expand{int(round(float(pp_expansion_radius_km)))}km_smooth{int(round(float(pp_smooth_radius_km)))}km_{len(out)}rows.parquet"
+    pp_cache = rp.pp_cache_dir / f"pp_ufvs_{d}_{PP_RECIPE_ID}_{len(out)}rows.parquet"
     if pp_cache.exists() and pp_cache.stat().st_size > 1024 and not force_ufvs:
         cached = pd.read_parquet(pp_cache)
         add_cols = [
             c for c in cached.columns
-            if c.startswith("UFVS_") or c == "PP_Any flood proxy"
+            if c.startswith("UFVS_") or c.startswith("PP_Reconstruction_")
+            or c == "PP_Any flood proxy"
         ]
         if add_cols and len(cached) == len(out):
             for c in add_cols:
@@ -1855,15 +1809,17 @@ def add_ufvs_and_realtime_pp(
         return out
     log(f"Starting UFVS/PP processing for {d}: prefixes={prefixes}, domain_rows={len(grid_domain):,}")
     prefix_to_points = {}
+    source_availability = {}
     summary = []
     available_sources = 0
     for prefix in prefixes:
         col = UFVS_PREFIX_TO_COL.get(prefix, f"UFVS_{prefix}")
         fetched = fetch_ufvs_points(d, prefix, rp=rp, force=force_ufvs)
         source_available = bool(fetched.attrs.get("ufvs_available", False))
+        source_availability[prefix] = source_available
         available_sources += int(source_available)
+        prefix_to_points[prefix] = fetched[["Lat", "Lon"]].copy()
         pts = filter_points_to_extent(fetched, extent=extent)
-        prefix_to_points[prefix] = pts
         flags_domain = event_mask_from_points(grid_domain, pts, max_dist_km=max_nearest_dist_km).astype(np.int8)
         out[col] = 0
         out.loc[grid_domain.index, col] = flags_domain
@@ -1874,20 +1830,24 @@ def add_ufvs_and_realtime_pp(
     ufvs_cols = [UFVS_PREFIX_TO_COL[p] for p in prefixes if p in UFVS_PREFIX_TO_COL and UFVS_PREFIX_TO_COL[p] in out.columns]
     if ufvs_cols:
         out["UFVS_ANY"] = (out[ufvs_cols].apply(pd.to_numeric, errors="coerce").fillna(0).max(axis=1) > 0).astype(np.int8)
-    all_pts = [v for v in prefix_to_points.values() if v is not None and len(v) > 0]
-    union_pts = pd.concat(all_pts, ignore_index=True).drop_duplicates(subset=["Lat", "Lon"]) if all_pts else pd.DataFrame(columns=["Lat", "Lon"])
-    point_sets = {"PP_Any flood proxy": union_pts}
-    any_pp_created = False
-    pp_meta = []
-    for pp_col, pts in point_sets.items():
-        vals_domain, meta = pp_from_points(grid_domain, pts, expansion_radius_km=pp_expansion_radius_km, smooth_radius_km=pp_smooth_radius_km, max_nearest_dist_km=max_nearest_dist_km)
-        out[pp_col] = 0.0
-        out.loc[grid_domain.index, pp_col] = vals_domain.astype(np.float32)
-        any_pp_created = any_pp_created or (meta["raw_points"] > 0)
-        pp_meta.append({"pp_column": pp_col, **meta})
-        log(f"  {pp_col}: {meta}")
-    if not any_pp_created:
-        log(f"No UFVS verification points found in domain for {d}; PP fields are zero/omitted on plot.")
+    vals_domain, pp_meta = reconstruct_pp(
+        grid_domain["Lat"].to_numpy(float),
+        grid_domain["Lon"].to_numpy(float),
+        prefix_to_points,
+        source_available=source_availability,
+    )
+    out["PP_Any flood proxy"] = 0.0
+    out.loc[grid_domain.index, "PP_Any flood proxy"] = vals_domain.astype(np.float32)
+    out["PP_Reconstruction_Recipe"] = PP_RECIPE_ID
+    out["PP_Reconstruction_Label"] = PP_RECIPE_LABEL
+    out["PP_Reconstruction_Required_Sources_Complete"] = bool(
+        pp_meta["required_sources_complete"]
+    )
+    log(
+        f"  PP_Any flood proxy: recipe={PP_RECIPE_ID} "
+        f"max={pp_meta['maximum_probability']:.4f} "
+        f"required_sources_complete={pp_meta['required_sources_complete']}"
+    )
     save_cols = ["Date", "Lat", "Lon"] + [c for c in out.columns if c.startswith("UFVS_") or c.startswith("PP_")]
     out[save_cols].to_parquet(pp_cache, index=False)
     meta_path = pp_cache.with_suffix(".summary.json")
@@ -3588,7 +3548,7 @@ def plot_realtime_ero_panels(
         )
         # Public forecast product: radius-member ML probabilities plus WPC only.
         # Never overlay internal generation-gate masks/contours on this graphic.
-        suffix = " (official 5/10/20/40%)" if col == "PP_Any flood proxy" else ""
+        suffix = " (reconstructed; PP 5/10/20/40%)" if col == "PP_Any flood proxy" else ""
         ax.set_title(f"{title}{suffix}")
     for ax in axes[len(panels):]:
         ax.set_visible(False)
@@ -3685,9 +3645,6 @@ def parse_args(argv=None):
     p.add_argument("--include-wpc", action=argparse.BooleanOptionalAction, default=True, help="Fetch/rasterize WPC ERO. Default: true")
     p.add_argument("--include-ufvs", action="store_true", help="Fetch UFVS and build PP/proxy panels. Default: false/day-zero mode.")
     p.add_argument("--verification-only", action="store_true", help="Force internal UFVS/PP verification for existing prediction caches; do not run detection, feature extraction, prediction, or public plotting.")
-    p.add_argument("--include-regular-flood-lsr", action="store_true", help="Include LSRREG in UFVS processing.")
-    p.add_argument("--pp-expansion-radius-km", type=float, default=40.0)
-    p.add_argument("--pp-smooth-radius-km", type=float, default=100.0)
 
     p.add_argument("--allow-feature-nan-fill-zero", action=argparse.BooleanOptionalAction, default=True, help="Match the v33 viewer model matrix by replacing NaN/inf predictors with 0.0. Default: true.")
     p.add_argument("--plot-field", default=None, help=argparse.SUPPRESS)  # deprecated; ignored. Radius panels are always plotted.
@@ -3739,9 +3696,6 @@ def main(argv=None) -> int:
                 radii=args.radii,
                 rp=rp,
                 force_ufvs=args.force_ufvs,
-                include_regular_flood_lsr=args.include_regular_flood_lsr,
-                pp_expansion_radius_km=args.pp_expansion_radius_km,
-                pp_smooth_radius_km=args.pp_smooth_radius_km,
                 cycle_label=args.cycle_label,
             )
             status["verification_path"] = str(verified_path) if verified_path else None
@@ -3834,10 +3788,7 @@ def main(argv=None) -> int:
             force_ufvs=args.force_ufvs,
             force_wpc=args.force_wpc,
             include_ufvs=args.include_ufvs,
-            include_regular_flood_lsr=args.include_regular_flood_lsr,
             include_wpc=args.include_wpc,
-            pp_expansion_radius_km=args.pp_expansion_radius_km,
-            pp_smooth_radius_km=args.pp_smooth_radius_km,
             training_script_by_radius=parse_training_script_by_radius(args.training_script_by_radius),
             nam_dir_override=args.nam_dir,
             cycle_label=args.cycle_label,

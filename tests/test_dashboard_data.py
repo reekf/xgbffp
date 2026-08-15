@@ -43,6 +43,20 @@ def test_threshold_boundaries_are_inclusive():
         assert metrics["false_alarms"] == 0
 
 
+def test_pp_uses_its_own_category_breaks_for_forecast_risk_bins():
+    forecast = [149, 150, 399, 400, 699, 700]
+    pp_truth = [99, 100, 199, 200, 399, 400]
+    for forecast_threshold, pp_threshold in dashboard.PP_THRESHOLD_BY_FORECAST_THRESHOLD.items():
+        metrics = dashboard.daily_product(
+            forecast,
+            pp_truth,
+            forecast_threshold,
+            truth_threshold=pp_threshold,
+        )
+        assert metrics["forecast_threshold_percent"] == forecast_threshold
+        assert metrics["reference_threshold_percent"] == pp_threshold
+
+
 def test_december_is_assigned_to_following_djf():
     start, end, name = dashboard.season_bounds(date(2026, 12, 15))
     assert (start, end, name) == (date(2026, 12, 1), date(2027, 2, 28), "DJF")
@@ -144,7 +158,7 @@ def test_published_manifests_and_verification_contracts():
             ]:
                 assert isinstance(counts[count_name], int)
                 assert counts[count_name] >= 0
-            assert counts["verified_day_count"] == 45
+            assert counts["verified_day_count"] == contingency["verified_case_count"]
             assert counts["forecast_risk_day_count"] == (
                 counts["hit_day_count"] + counts["false_alarm_day_count"]
             )
@@ -153,12 +167,10 @@ def test_published_manifests_and_verification_contracts():
             )
             for metric in ["csi", "ets"]:
                 assert counts[metric] is None or math.isfinite(counts[metric])
-    moderate = {
-        product: thresholds["40"]
-        for product, thresholds in contingency["products"].items()
-    }
-    assert max(moderate, key=lambda product: moderate[product]["ets"]) == "ML r60km"
-    assert max(moderate, key=lambda product: moderate[product]["csi"]) == "ML r60kmV2"
+    assert contingency["verified_case_count"] <= contingency["catalog_case_count"]
+    assert contingency["missing_archived_pp_case_count"] == (
+        contingency["catalog_case_count"] - contingency["verified_case_count"]
+    )
     for product, thresholds in contingency["products"].items():
         assert thresholds["5"]["ets"] is not None, product
 

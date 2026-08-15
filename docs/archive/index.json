@@ -23,7 +23,7 @@
       "date": "20260814",
       "map_available": true,
       "map_href": "archive/20260814/map.json",
-      "map_updated_utc": "2026-08-15T16:06:41Z",
+      "map_updated_utc": "2026-08-15T17:06:46Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -36,13 +36,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260814/verification.png",
-      "verification_updated_utc": "2026-08-15T16:06:41Z"
+      "verification_updated_utc": "2026-08-15T17:06:46Z"
     },
     {
       "date": "20260813",
       "map_available": true,
       "map_href": "archive/20260813/map.json",
-      "map_updated_utc": "2026-08-14T16:06:46Z",
+      "map_updated_utc": "2026-08-15T17:06:43Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -55,13 +55,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260813/verification.png",
-      "verification_updated_utc": "2026-08-14T16:06:46Z"
+      "verification_updated_utc": "2026-08-15T17:06:43Z"
     },
     {
       "date": "20260812",
       "map_available": true,
       "map_href": "archive/20260812/map.json",
-      "map_updated_utc": "2026-08-13T16:07:00Z",
+      "map_updated_utc": "2026-08-15T17:06:40Z",
       "mcs_classification_label": "MCS classification not audited",
       "mcs_eligible": true,
       "plot_available": true,
@@ -74,13 +74,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260812/verification.png",
-      "verification_updated_utc": "2026-08-13T16:07:00Z"
+      "verification_updated_utc": "2026-08-15T17:06:40Z"
     },
     {
       "date": "20260811",
       "map_available": true,
       "map_href": "archive/20260811/map.json",
-      "map_updated_utc": "2026-08-13T13:53:07Z",
+      "map_updated_utc": "2026-08-15T17:06:37Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -93,13 +93,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260811/verification.png",
-      "verification_updated_utc": "2026-08-13T13:53:07Z"
+      "verification_updated_utc": "2026-08-15T17:06:37Z"
     },
     {
       "date": "20260809",
       "map_available": true,
       "map_href": "archive/20260809/map.json",
-      "map_updated_utc": "2026-08-10T16:06:41Z",
+      "map_updated_utc": "2026-08-15T17:06:34Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -112,13 +112,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260809/verification.png",
-      "verification_updated_utc": "2026-08-10T16:06:41Z"
+      "verification_updated_utc": "2026-08-15T17:06:34Z"
     },
     {
       "date": "20260806",
       "map_available": true,
       "map_href": "archive/20260806/map.json",
-      "map_updated_utc": "2026-08-08T16:06:39Z",
+      "map_updated_utc": "2026-08-15T17:06:31Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -131,13 +131,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260806/verification.png",
-      "verification_updated_utc": "2026-08-08T16:06:39Z"
+      "verification_updated_utc": "2026-08-15T17:06:31Z"
     },
     {
       "date": "20260805",
       "map_available": true,
       "map_href": "archive/20260805/map.json",
-      "map_updated_utc": "2026-08-06T18:56:36Z",
+      "map_updated_utc": "2026-08-15T17:06:28Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -150,13 +150,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260805/verification.png",
-      "verification_updated_utc": "2026-08-06T18:56:36Z"
+      "verification_updated_utc": "2026-08-15T17:06:28Z"
     },
     {
       "date": "20260804",
       "map_available": true,
       "map_href": "archive/20260804/map.json",
-      "map_updated_utc": "2026-08-05T22:14:40Z",
+      "map_updated_utc": "2026-08-15T17:06:25Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -169,13 +169,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260804/verification.png",
-      "verification_updated_utc": "2026-08-05T22:14:40Z"
+      "verification_updated_utc": "2026-08-15T17:06:25Z"
     },
     {
       "date": "20260802",
       "map_available": true,
       "map_href": "archive/20260802/map.json",
-      "map_updated_utc": "2026-08-05T13:56:34Z",
+      "map_updated_utc": "2026-08-15T17:06:23Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -188,13 +188,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260802/verification.png",
-      "verification_updated_utc": "2026-08-05T13:56:34Z"
+      "verification_updated_utc": "2026-08-15T17:06:23Z"
     },
     {
       "date": "20260801",
       "map_available": true,
       "map_href": "archive/20260801/map.json",
-      "map_updated_utc": "2026-08-05T13:55:15Z",
+      "map_updated_utc": "2026-08-15T17:06:20Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -207,13 +207,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260801/verification.png",
-      "verification_updated_utc": "2026-08-05T13:55:15Z"
+      "verification_updated_utc": "2026-08-15T17:06:20Z"
     },
     {
       "date": "20260731",
       "map_available": true,
       "map_href": "archive/20260731/map.json",
-      "map_updated_utc": "2026-08-01T19:57:48Z",
+      "map_updated_utc": "2026-08-15T17:06:17Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -226,13 +226,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260731/verification.png",
-      "verification_updated_utc": "2026-08-01T19:57:48Z"
+      "verification_updated_utc": "2026-08-15T17:06:17Z"
     },
     {
       "date": "20260730",
       "map_available": true,
       "map_href": "archive/20260730/map.json",
-      "map_updated_utc": "2026-08-01T19:56:29Z",
+      "map_updated_utc": "2026-08-15T17:06:14Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -245,13 +245,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260730/verification.png",
-      "verification_updated_utc": "2026-08-01T19:56:29Z"
+      "verification_updated_utc": "2026-08-15T17:06:14Z"
     },
     {
       "date": "20260729",
       "map_available": true,
       "map_href": "archive/20260729/map.json",
-      "map_updated_utc": "2026-08-01T19:59:52Z",
+      "map_updated_utc": "2026-08-15T17:06:11Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -264,13 +264,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260729/verification.png",
-      "verification_updated_utc": "2026-08-01T19:59:52Z"
+      "verification_updated_utc": "2026-08-15T17:06:11Z"
     },
     {
       "date": "20260728",
       "map_available": true,
       "map_href": "archive/20260728/map.json",
-      "map_updated_utc": "2026-07-29T16:06:57Z",
+      "map_updated_utc": "2026-08-15T17:06:09Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -283,13 +283,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260728/verification.png",
-      "verification_updated_utc": "2026-07-29T16:06:57Z"
+      "verification_updated_utc": "2026-08-15T17:06:09Z"
     },
     {
       "date": "20260727",
       "map_available": true,
       "map_href": "archive/20260727/map.json",
-      "map_updated_utc": "2026-07-28T16:48:49Z",
+      "map_updated_utc": "2026-08-15T17:06:06Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -302,13 +302,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260727/verification.png",
-      "verification_updated_utc": "2026-07-28T16:48:49Z"
+      "verification_updated_utc": "2026-08-15T17:06:06Z"
     },
     {
       "date": "20260726",
       "map_available": true,
       "map_href": "archive/20260726/map.json",
-      "map_updated_utc": "2026-07-27T18:43:51Z",
+      "map_updated_utc": "2026-08-15T17:06:03Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -321,13 +321,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260726/verification.png",
-      "verification_updated_utc": "2026-07-27T18:43:51Z"
+      "verification_updated_utc": "2026-08-15T17:06:03Z"
     },
     {
       "date": "20260724",
       "map_available": true,
       "map_href": "archive/20260724/map.json",
-      "map_updated_utc": "2026-07-25T16:06:53Z",
+      "map_updated_utc": "2026-08-15T17:06:00Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -340,13 +340,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260724/verification.png",
-      "verification_updated_utc": "2026-07-25T16:06:53Z"
+      "verification_updated_utc": "2026-08-15T17:06:00Z"
     },
     {
       "date": "20260723",
       "map_available": true,
       "map_href": "archive/20260723/map.json",
-      "map_updated_utc": "2026-07-24T16:06:50Z",
+      "map_updated_utc": "2026-08-15T17:05:57Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -359,13 +359,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260723/verification.png",
-      "verification_updated_utc": "2026-07-24T16:06:50Z"
+      "verification_updated_utc": "2026-08-15T17:05:57Z"
     },
     {
       "date": "20260722",
       "map_available": true,
       "map_href": "archive/20260722/map.json",
-      "map_updated_utc": "2026-07-23T16:06:42Z",
+      "map_updated_utc": "2026-08-15T17:05:54Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -378,13 +378,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260722/verification.png",
-      "verification_updated_utc": "2026-07-23T16:06:42Z"
+      "verification_updated_utc": "2026-08-15T17:05:54Z"
     },
     {
       "date": "20260721",
       "map_available": true,
       "map_href": "archive/20260721/map.json",
-      "map_updated_utc": "2026-07-22T16:06:49Z",
+      "map_updated_utc": "2026-08-15T17:05:51Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -397,13 +397,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260721/verification.png",
-      "verification_updated_utc": "2026-07-22T16:06:49Z"
+      "verification_updated_utc": "2026-08-15T17:05:51Z"
     },
     {
       "date": "20260720",
       "map_available": true,
       "map_href": "archive/20260720/map.json",
-      "map_updated_utc": "2026-07-21T16:06:34Z",
+      "map_updated_utc": "2026-08-15T17:05:48Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -416,13 +416,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260720/verification.png",
-      "verification_updated_utc": "2026-07-21T16:06:34Z"
+      "verification_updated_utc": "2026-08-15T17:05:48Z"
     },
     {
       "date": "20260719",
       "map_available": true,
       "map_href": "archive/20260719/map.json",
-      "map_updated_utc": "2026-07-20T16:06:46Z",
+      "map_updated_utc": "2026-08-15T17:05:45Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -435,13 +435,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260719/verification.png",
-      "verification_updated_utc": "2026-07-20T16:06:46Z"
+      "verification_updated_utc": "2026-08-15T17:05:45Z"
     },
     {
       "date": "20260718",
       "map_available": true,
       "map_href": "archive/20260718/map.json",
-      "map_updated_utc": "2026-07-19T16:06:32Z",
+      "map_updated_utc": "2026-08-15T17:05:42Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -454,13 +454,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260718/verification.png",
-      "verification_updated_utc": "2026-07-19T16:06:32Z"
+      "verification_updated_utc": "2026-08-15T17:05:42Z"
     },
     {
       "date": "20260717",
       "map_available": true,
       "map_href": "archive/20260717/map.json",
-      "map_updated_utc": "2026-07-18T16:06:35Z",
+      "map_updated_utc": "2026-08-15T17:05:39Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -473,7 +473,7 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260717/verification.png",
-      "verification_updated_utc": "2026-07-18T16:06:35Z"
+      "verification_updated_utc": "2026-08-15T17:05:39Z"
     },
     {
       "date": "20260715",
@@ -498,7 +498,7 @@
       "date": "20260714",
       "map_available": true,
       "map_href": "archive/20260714/map.json",
-      "map_updated_utc": "2026-07-15T16:06:37Z",
+      "map_updated_utc": "2026-08-15T17:05:36Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -511,13 +511,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260714/verification.png",
-      "verification_updated_utc": "2026-07-15T16:06:37Z"
+      "verification_updated_utc": "2026-08-15T17:05:36Z"
     },
     {
       "date": "20260713",
       "map_available": true,
       "map_href": "archive/20260713/map.json",
-      "map_updated_utc": "2026-07-15T16:44:09Z",
+      "map_updated_utc": "2026-08-15T17:05:34Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -530,13 +530,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260713/verification.png",
-      "verification_updated_utc": "2026-07-15T16:44:09Z"
+      "verification_updated_utc": "2026-08-15T17:05:34Z"
     },
     {
       "date": "20260712",
       "map_available": true,
       "map_href": "archive/20260712/map.json",
-      "map_updated_utc": "2026-07-15T16:43:33Z",
+      "map_updated_utc": "2026-08-15T17:05:31Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -549,13 +549,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260712/verification.png",
-      "verification_updated_utc": "2026-07-15T16:43:33Z"
+      "verification_updated_utc": "2026-08-15T17:05:31Z"
     },
     {
       "date": "20260711",
       "map_available": true,
       "map_href": "archive/20260711/map.json",
-      "map_updated_utc": "2026-07-15T15:57:45Z",
+      "map_updated_utc": "2026-08-15T17:05:28Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -568,13 +568,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260711/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:45Z"
+      "verification_updated_utc": "2026-08-15T17:05:28Z"
     },
     {
       "date": "20260710",
       "map_available": true,
       "map_href": "archive/20260710/map.json",
-      "map_updated_utc": "2026-07-15T15:57:39Z",
+      "map_updated_utc": "2026-08-15T17:05:25Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -587,13 +587,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260710/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:39Z"
+      "verification_updated_utc": "2026-08-15T17:05:25Z"
     },
     {
       "date": "20260709",
       "map_available": true,
       "map_href": "archive/20260709/map.json",
-      "map_updated_utc": "2026-07-15T15:57:33Z",
+      "map_updated_utc": "2026-08-15T17:05:22Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -606,13 +606,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260709/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:33Z"
+      "verification_updated_utc": "2026-08-15T17:05:22Z"
     },
     {
       "date": "20260708",
       "map_available": true,
       "map_href": "archive/20260708/map.json",
-      "map_updated_utc": "2026-07-15T15:57:27Z",
+      "map_updated_utc": "2026-08-15T17:05:19Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -625,13 +625,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260708/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:27Z"
+      "verification_updated_utc": "2026-08-15T17:05:19Z"
     },
     {
       "date": "20260707",
       "map_available": true,
       "map_href": "archive/20260707/map.json",
-      "map_updated_utc": "2026-07-15T15:57:21Z",
+      "map_updated_utc": "2026-08-15T17:05:16Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -644,13 +644,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260707/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:21Z"
+      "verification_updated_utc": "2026-08-15T17:05:16Z"
     },
     {
       "date": "20260706",
       "map_available": true,
       "map_href": "archive/20260706/map.json",
-      "map_updated_utc": "2026-07-15T15:57:15Z",
+      "map_updated_utc": "2026-08-15T17:05:13Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -663,13 +663,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260706/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:15Z"
+      "verification_updated_utc": "2026-08-15T17:05:13Z"
     },
     {
       "date": "20260705",
       "map_available": true,
       "map_href": "archive/20260705/map.json",
-      "map_updated_utc": "2026-07-15T15:57:09Z",
+      "map_updated_utc": "2026-08-15T17:05:10Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -682,13 +682,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260705/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:09Z"
+      "verification_updated_utc": "2026-08-15T17:05:10Z"
     },
     {
       "date": "20260704",
       "map_available": true,
       "map_href": "archive/20260704/map.json",
-      "map_updated_utc": "2026-07-15T15:57:03Z",
+      "map_updated_utc": "2026-08-15T17:05:08Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -701,13 +701,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260704/verification.png",
-      "verification_updated_utc": "2026-07-15T15:57:03Z"
+      "verification_updated_utc": "2026-08-15T17:05:08Z"
     },
     {
       "date": "20260703",
       "map_available": true,
       "map_href": "archive/20260703/map.json",
-      "map_updated_utc": "2026-07-15T15:56:57Z",
+      "map_updated_utc": "2026-08-15T17:05:05Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -720,13 +720,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260703/verification.png",
-      "verification_updated_utc": "2026-07-15T15:56:57Z"
+      "verification_updated_utc": "2026-08-15T17:05:05Z"
     },
     {
       "date": "20260702",
       "map_available": true,
       "map_href": "archive/20260702/map.json",
-      "map_updated_utc": "2026-07-15T15:56:51Z",
+      "map_updated_utc": "2026-08-15T17:05:02Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -739,13 +739,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260702/verification.png",
-      "verification_updated_utc": "2026-07-15T15:56:51Z"
+      "verification_updated_utc": "2026-08-15T17:05:02Z"
     },
     {
       "date": "20260701",
       "map_available": true,
       "map_href": "archive/20260701/map.json",
-      "map_updated_utc": "2026-07-15T15:56:45Z",
+      "map_updated_utc": "2026-08-15T17:04:59Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -758,13 +758,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260701/verification.png",
-      "verification_updated_utc": "2026-07-15T15:56:45Z"
+      "verification_updated_utc": "2026-08-15T17:04:59Z"
     },
     {
       "date": "20260630",
       "map_available": true,
       "map_href": "archive/20260630/map.json",
-      "map_updated_utc": "2026-07-15T15:56:39Z",
+      "map_updated_utc": "2026-08-15T17:04:56Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -777,13 +777,13 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260630/verification.png",
-      "verification_updated_utc": "2026-07-15T15:56:39Z"
+      "verification_updated_utc": "2026-08-15T17:04:56Z"
     },
     {
       "date": "20260629",
       "map_available": true,
       "map_href": "archive/20260629/map.json",
-      "map_updated_utc": "2026-07-15T15:56:34Z",
+      "map_updated_utc": "2026-08-15T17:04:53Z",
       "mcs_classification_label": "MCS-associated precipitation",
       "mcs_eligible": true,
       "plot_available": true,
@@ -796,7 +796,7 @@
       "verification_embedded_in_forecast": false,
       "verification_included": true,
       "verification_plot_href": "archive/20260629/verification.png",
-      "verification_updated_utc": "2026-07-15T15:56:34Z"
+      "verification_updated_utc": "2026-08-15T17:04:53Z"
     },
     {
       "date": "20250729",
@@ -1654,5 +1654,5 @@
       "verification_updated_utc": "2026-07-13T04:48:06Z"
     }
   ],
-  "generated_utc": "2026-08-15T16:06:41Z"
+  "generated_utc": "2026-08-15T17:10:51Z"
 }

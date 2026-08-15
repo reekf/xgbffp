@@ -15,8 +15,10 @@
   "daily_path_template": "verification/daily/{date}.json",
   "daily_record_count": 11,
   "dataset_class": "realtime-issued-verification",
+  "excluded_incomplete_pp_count": 0,
+  "excluded_incomplete_pp_dates": [],
   "forecast_day": 2,
-  "generated_utc": "2026-08-15T16:16:11Z",
+  "generated_utc": "2026-08-15T17:09:20Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"

@@ -3,8 +3,9 @@
   "latest_plot": "latest.png",
   "map_available": true,
   "map_data": "map.json",
-  "map_updated_utc": "2026-08-13T16:07:00Z",
+  "map_updated_utc": "2026-08-15T17:06:40Z",
   "plot_available": true,
+  "pp_reconstruction_recipe": "wpcfit12z_g009_pr4sq_or5disk_s9p75_t3p5_w060060100_div3_v1",
   "product_description": "Machine-learning radius products, ensemble mean, and WPC ERO.",
   "published": true,
   "site_updated_utc": "2026-08-12T19:39:13Z",
@@ -13,5 +14,5 @@
   "valid_start_utc": "2026-08-12T12:00:00Z",
   "verification_available": true,
   "verification_plot": "verification.png",
-  "verification_updated_utc": "2026-08-13T16:07:00Z"
+  "verification_updated_utc": "2026-08-15T17:06:40Z"
 }

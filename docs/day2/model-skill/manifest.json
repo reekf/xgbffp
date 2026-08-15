@@ -2,7 +2,7 @@
   "dataset_class": "formal-independent-test-set",
   "figures": [
     {
-      "generated_utc": "2026-07-28T22:38:18Z",
+      "generated_utc": "2026-08-15T17:07:46Z",
       "metric": "ETS",
       "model": "XGBoost v33 Day-2 radius configurations and WPC ERO",
       "path": "model-skill/ets_any_flood_proxy.png",
@@ -20,7 +20,7 @@
       "title": "Day-2 Any Flood Proxy ETS"
     },
     {
-      "generated_utc": "2026-07-28T22:38:18Z",
+      "generated_utc": "2026-08-15T17:07:46Z",
       "metric": "ETS",
       "model": "XGBoost v33 Day-2 radius configurations and WPC ERO",
       "path": "model-skill/ets_practically_perfect.png",
@@ -41,7 +41,7 @@
       "title": "Day-2 Practically Perfect ETS by threshold"
     },
     {
-      "generated_utc": "2026-07-28T22:38:18Z",
+      "generated_utc": "2026-08-15T17:07:46Z",
       "metric": "Brier Score",
       "model": "XGBoost v33 Day-2 radius configurations and WPC ERO",
       "path": "model-skill/brier_any_flood_proxy_including_excluding_marginal.png",
@@ -65,7 +65,7 @@
     }
   ],
   "forecast_day": 2,
-  "generated_utc": "2026-07-28T22:38:18Z",
+  "generated_utc": "2026-08-15T17:07:46Z",
   "schema_version": 1,
   "test_period": "2024\u20132025"
 }

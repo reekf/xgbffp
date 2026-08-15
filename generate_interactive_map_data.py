@@ -72,6 +72,7 @@ OBSERVATION_SPECS = {
     "stage4_ari": ("Stage IV ARI", "ST4gARI"),
     "usgs": ("USGS", "USGS"),
     "flash_lsr": ("Flash-flood reports", "LSRFLASH"),
+    "regular_flood_lsr": ("Flood reports", "LSRREG"),
 }
 
 LAYER_SPECS = {
@@ -178,7 +179,13 @@ def load_realtime(date: str) -> pd.DataFrame:
         verification = pd.read_parquet(verification_path)
         verification_columns = [
             column
-            for column in ("PP_Any flood proxy", "UFVS_ANY")
+            for column in (
+                "PP_Any flood proxy",
+                "UFVS_ANY",
+                "PP_Reconstruction_Recipe",
+                "PP_Reconstruction_Label",
+                "PP_Reconstruction_Required_Sources_Complete",
+            )
             if column in verification.columns
         ]
         if verification_columns:
@@ -352,13 +359,26 @@ def build_payload(
 
     layers = {}
     contours = {}
+    reconstruction_recipe = ""
+    reconstruction_label = ""
+    reconstruction_complete = None
+    if "PP_Reconstruction_Recipe" in frame:
+        recipes = frame["PP_Reconstruction_Recipe"].dropna().astype(str)
+        reconstruction_recipe = recipes.iloc[0] if len(recipes) else ""
+    if "PP_Reconstruction_Label" in frame:
+        labels = frame["PP_Reconstruction_Label"].dropna().astype(str)
+        reconstruction_label = labels.iloc[0] if len(labels) else ""
+    if "PP_Reconstruction_Required_Sources_Complete" in frame:
+        complete = frame["PP_Reconstruction_Required_Sources_Complete"].dropna()
+        reconstruction_complete = bool(complete.iloc[0]) if len(complete) else None
     for key, (label, column, kind) in LAYER_SPECS.items():
         if column not in frame.columns:
             continue
         numeric = pd.to_numeric(frame[column], errors="coerce").fillna(0.0).clip(0.0, 1.0)
         layer_thresholds = PP_THRESHOLDS if key == "pp" else THRESHOLDS
+        layer_label = reconstruction_label if key == "pp" and reconstruction_label else label
         layers[key] = {
-            "label": label,
+            "label": layer_label,
             "kind": kind,
             "values": probability_millipercent(numeric),
             "risk_threshold_percent": [int(round(value * 100)) for value in layer_thresholds],
@@ -379,8 +399,18 @@ def build_payload(
     verification_truths = {}
     if "PP_Any flood proxy" in frame:
         verification_truths["practically_perfect"] = {
-            "label": "Practically Perfect (smoothed any-flood-proxy field)",
+            "label": reconstruction_label or "Official WPC Practically Perfect",
             "values": probability_millipercent(frame["PP_Any flood proxy"]),
+            "provenance": (
+                {
+                    "product_class": "reconstructed",
+                    "recipe_id": reconstruction_recipe,
+                    "required_sources_complete": reconstruction_complete,
+                    "valid_cycle": "12Z-to-12Z",
+                }
+                if reconstruction_recipe
+                else {"product_class": "official-wpc-archive"}
+            ),
         }
     if "UFVS_ANY" in frame:
         verification_truths["ufvs_40km"] = {

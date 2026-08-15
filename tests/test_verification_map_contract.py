@@ -32,6 +32,9 @@ def test_realtime_verification_preserves_issued_wpc_layer(tmp_path, monkeypatch)
     verification = _grid(date)
     verification["PP_Any flood proxy"] = [0.0, 0.25, 0.8]
     verification["UFVS_ANY"] = [0, 1, 0]
+    verification["PP_Reconstruction_Recipe"] = "recipe-v1"
+    verification["PP_Reconstruction_Label"] = "Reconstructed PP"
+    verification["PP_Reconstruction_Required_Sources_Complete"] = True
     verification.to_parquet(
         realtime_dir
         / f"realtime_ufvs_verified_v33_multiradius_r40_r60_r75_r100_{date}.parquet"
@@ -42,6 +45,7 @@ def test_realtime_verification_preserves_issued_wpc_layer(tmp_path, monkeypatch)
     assert combined["WPC_ERO_Risk"].tolist() == [0.05, 0.15, 0.4]
     assert combined["PP_Any flood proxy"].tolist() == [0.0, 0.25, 0.8]
     assert combined["UFVS_ANY"].tolist() == [0, 1, 0]
+    assert combined["PP_Reconstruction_Recipe"].unique().tolist() == ["recipe-v1"]
 
 
 def test_realtime_wpc_fallback_accepts_current_cache_name(tmp_path, monkeypatch):

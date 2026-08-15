@@ -20,6 +20,7 @@ import pandas as pd
 
 RADII = (40, 60, 75, 100)
 THRESHOLDS = (0.05, 0.15, 0.40, 0.70)
+PP_THRESHOLD_BY_FORECAST_THRESHOLD = {0.05: 0.05, 0.15: 0.10, 0.40: 0.20, 0.70: 0.40}
 COLORS = {40: "#58c84d", 60: "#e7d938", 75: "#e14b3f", 100: "#a65ad9", "wpc": "#6bbcf2"}
 
 
@@ -141,10 +142,11 @@ def risk_occurrence(frame: pd.DataFrame, generated: str) -> dict:
         products[label] = {}
         column = "WPC_ERO_Risk" if source == "wpc" else source
         for threshold in THRESHOLDS:
+            pp_threshold = PP_THRESHOLD_BY_FORECAST_THRESHOLD[threshold]
             counts = dict(hits=0, misses=0, false_alarms=0, correct_negatives=0)
             for _, sub in frame.groupby("Date", sort=True):
                 forecast_yes = bool((sub[column].to_numpy(float) >= threshold).any())
-                truth_yes = bool((sub["PP_Any flood proxy"].to_numpy(float) >= threshold).any())
+                truth_yes = bool((sub["PP_Any flood proxy"].to_numpy(float) >= pp_threshold).any())
                 key = "hits" if forecast_yes and truth_yes else "misses" if truth_yes else "false_alarms" if forecast_yes else "correct_negatives"
                 counts[key] += 1
             total = sum(counts.values())
@@ -157,6 +159,7 @@ def risk_occurrence(frame: pd.DataFrame, generated: str) -> dict:
             csi = safe_ratio(counts["hits"], counts["hits"] + counts["misses"] + counts["false_alarms"])
             products[label][str(int(threshold * 100))] = {
                 "threshold_label": f"≥{int(threshold * 100)}%",
+                "pp_threshold_percent": int(pp_threshold * 100),
                 "hit_day_count": counts["hits"],
                 "miss_day_count": counts["misses"],
                 "false_alarm_day_count": counts["false_alarms"],
