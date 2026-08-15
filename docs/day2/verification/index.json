@@ -15,7 +15,7 @@
   "daily_record_count": 10,
   "dataset_class": "realtime-issued-verification",
   "forecast_day": 2,
-  "generated_utc": "2026-08-13T16:16:11Z",
+  "generated_utc": "2026-08-14T16:06:14Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"
