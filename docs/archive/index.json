@@ -1,6 +1,25 @@
 {
   "entries": [
     {
+      "date": "20260818",
+      "map_available": true,
+      "map_href": "archive/20260818/map.json",
+      "map_updated_utc": "2026-08-18T13:51:46Z",
+      "mcs_classification_label": "MCS-associated precipitation",
+      "mcs_eligible": true,
+      "plot_available": true,
+      "plot_href": "archive/20260818/latest.png",
+      "published": true,
+      "site_updated_utc": "2026-08-18T13:51:46Z",
+      "status_href": "archive/20260818/status.json",
+      "valid_period_label": "2026-08-18 12Z to 2026-08-19 12Z",
+      "verification_available": false,
+      "verification_embedded_in_forecast": false,
+      "verification_included": true,
+      "verification_plot_href": null,
+      "verification_updated_utc": "2026-08-18T13:51:46Z"
+    },
+    {
       "date": "20260817",
       "map_available": true,
       "map_href": "archive/20260817/map.json",
@@ -1673,5 +1692,5 @@
       "verification_updated_utc": "2026-07-13T04:48:06Z"
     }
   ],
-  "generated_utc": "2026-08-17T13:54:11Z"
+  "generated_utc": "2026-08-18T13:51:46Z"
 }
