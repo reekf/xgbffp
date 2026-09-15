@@ -101,7 +101,7 @@
       "issue_date": "20260819",
       "map_available": true,
       "map_href": "day2/archive/20260820/map.json",
-      "map_updated_utc": "2026-08-19T14:15:23Z",
+      "map_updated_utc": "2026-09-15T14:51:27Z",
       "plot_available": true,
       "plot_href": "day2/archive/20260820/latest.png",
       "published": true,
@@ -109,10 +109,10 @@
       "source_class": "realtime",
       "status_href": "day2/archive/20260820/status.json",
       "valid_period_label": "2026-08-20 12Z to 2026-08-21 12Z",
-      "verification_available": false,
+      "verification_available": true,
       "verification_embedded_in_map": false,
-      "verification_plot_href": null,
-      "verification_updated_utc": ""
+      "verification_plot_href": "day2/archive/20260820/verification.png",
+      "verification_updated_utc": "2026-09-15T14:51:27Z"
     },
     {
       "date": "20260819",
