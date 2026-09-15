@@ -2,7 +2,7 @@
 set -uo pipefail
 
 REPO_DIR="${REPO_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
-VERIFY_LOOKBACK_DAYS="${VERIFY_LOOKBACK_DAYS:-7}"
+VERIFY_LOOKBACK_DAYS="${VERIFY_LOOKBACK_DAYS:-30}"
 PUBLISH_GIT="${PUBLISH_GIT:-1}"
 LOCK_FILE="${VERIFY_CATCHUP_LOCK_FILE:-/tmp/xgbffp-verification-catchup.lock}"
 
@@ -19,6 +19,11 @@ exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   echo "Another verification publish is already running; skipping catch-up."
   exit 0
+fi
+
+# Sync before scanning so forecasts published by another checkout are visible.
+if [[ "$PUBLISH_GIT" == "1" ]]; then
+  xgbffp_sync_main "$REPO_DIR" 1 || exit 1
 fi
 
 verification_is_complete() {
