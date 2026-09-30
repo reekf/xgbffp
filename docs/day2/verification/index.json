@@ -22,15 +22,16 @@
     "20260915",
     "20260916",
     "20260917",
-    "20260919"
+    "20260919",
+    "20260921"
   ],
   "daily_path_template": "verification/daily/{date}.json",
-  "daily_record_count": 23,
+  "daily_record_count": 24,
   "dataset_class": "realtime-issued-verification",
   "excluded_incomplete_pp_count": 0,
   "excluded_incomplete_pp_dates": [],
   "forecast_day": 2,
-  "generated_utc": "2026-09-30T13:52:20Z",
+  "generated_utc": "2026-09-30T14:19:41Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"
