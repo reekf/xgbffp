@@ -1,6 +1,25 @@
 {
   "entries": [
     {
+      "date": "20261002",
+      "forecast_day": 2,
+      "issue_date": "20261001",
+      "map_available": true,
+      "map_href": "day2/archive/20261002/map.json",
+      "map_updated_utc": "2026-10-01T14:17:36Z",
+      "plot_available": true,
+      "plot_href": "day2/archive/20261002/latest.png",
+      "published": true,
+      "site_updated_utc": "2026-10-01T14:17:36Z",
+      "source_class": "realtime",
+      "status_href": "day2/archive/20261002/status.json",
+      "valid_period_label": "2026-10-02 12Z to 2026-10-03 12Z",
+      "verification_available": false,
+      "verification_embedded_in_map": false,
+      "verification_plot_href": null,
+      "verification_updated_utc": ""
+    },
+    {
       "date": "20261001",
       "forecast_day": 2,
       "issue_date": "20260930",
@@ -1332,5 +1351,5 @@
     }
   ],
   "forecast_day": 2,
-  "generated_utc": "2026-09-30T14:19:31Z"
+  "generated_utc": "2026-10-01T14:17:36Z"
 }
