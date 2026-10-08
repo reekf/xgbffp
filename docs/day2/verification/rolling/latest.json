@@ -1,7 +1,7 @@
 {
   "dataset_class": "realtime-issued-verification",
   "forecast_day": 2,
-  "generated_utc": "2026-10-04T16:16:06Z",
+  "generated_utc": "2026-10-08T13:51:08Z",
   "schema_version": 4,
   "windows": {
     "monthly": {
@@ -12,7 +12,7 @@
       "end_date": "20261003",
       "expected_calendar_days": 30,
       "forecast_day": 2,
-      "generated_utc": "2026-10-04T16:16:06Z",
+      "generated_utc": "2026-10-08T13:51:08Z",
       "missing_day_count": 21,
       "products": {
         "ml_mean": {
@@ -1903,7 +1903,7 @@
       "end_date": "20261003",
       "expected_calendar_days": 33,
       "forecast_day": 2,
-      "generated_utc": "2026-10-04T16:16:06Z",
+      "generated_utc": "2026-10-08T13:51:08Z",
       "missing_day_count": 24,
       "products": {
         "ml_mean": {

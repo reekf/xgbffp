@@ -6,7 +6,7 @@
   "end_date": "20261003",
   "expected_calendar_days": 30,
   "forecast_day": 2,
-  "generated_utc": "2026-10-04T16:16:06Z",
+  "generated_utc": "2026-10-08T13:51:08Z",
   "missing_day_count": 21,
   "products": {
     "ml_mean": {
