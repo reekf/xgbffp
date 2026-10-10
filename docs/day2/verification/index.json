@@ -36,7 +36,7 @@
   "excluded_incomplete_pp_count": 0,
   "excluded_incomplete_pp_dates": [],
   "forecast_day": 2,
-  "generated_utc": "2026-10-08T14:18:25Z",
+  "generated_utc": "2026-10-09T16:06:07Z",
   "rolling_paths": {
     "monthly": "verification/rolling/monthly.json",
     "seasonal": "verification/rolling/seasonal.json"
